@@ -1,3 +1,5 @@
+//Portions from https://github.com/dbdexter-dev/sondedump/tree/master/sonde/dfm09
+//under MIT license
 #include <arduino.h>
 #include "sx126x.h"
 #include "TrovaLaSondaFw.h"
@@ -18,7 +20,7 @@ Sonde m10={
   .processPacket=processPacket
 };
 
-static bool manchesterDecode(uint8_t* data, uint8_t* out, int len) {
+bool manchesterDecode(uint8_t* data, uint8_t* out, int len) {
   uint8_t t;
   uint16_t w;
 
@@ -40,7 +42,7 @@ static bool manchesterDecode(uint8_t* data, uint8_t* out, int len) {
   return true;
 }
 
-static uint16_t m10CrcStep(uint16_t c, uint8_t b) {
+uint16_t m10CrcStep(uint16_t c, uint8_t b) {
   int c1 = c & 0xFF;
   // B
   b = (b >> 1) | ((b & 1) << 7);
@@ -105,7 +107,7 @@ static int m10_frame_correct(M10Frame_9f *frame) {
 	return (crc == expected) ? 0 : -1;
 }
 
- void processPacket(uint8_t buf[]) {
+ static void processPacket(uint8_t buf[]) {
   static M10Frame_9f frame;
   frame.sync_mark[0]=0x55;
   frame.sync_mark[1]=0x55;

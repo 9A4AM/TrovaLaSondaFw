@@ -1,3 +1,5 @@
+//!arduino-cli compile --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
+//!arduino-cli upload -p COM3 --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
 #include <SPI.h>
 #include <Wire.h>
 #include <HT_SSD1306Wire.h>
@@ -18,10 +20,10 @@
 #include "dfm.h"
 
 const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN=GPIO_NUM_1, ADC_CTRL_PIN=GPIO_NUM_37,BATTERY_SAMPLES=GPIO_NUM_20, BUZZER = GPIO_NUM_46;
-uint32_t freq = 402003;//405950;
-int frame = 0, nBytesRead = 0, currentSonde=1;
+uint32_t freq = 402870;//402000;//405950;
+int frame = 0, nBytesRead = 0, currentSonde=3;
 int16_t rssi;
-bool encrypted = false;
+bool encrypted = false, mute = true;
 char serial[SERIAL_LENGTH + 1] = "";
 float lat = 0, lng = 0, alt = 0;
 struct sx126x_long_pkt_rx_state pktRxState;
@@ -57,6 +59,7 @@ void dump(uint8_t buf[], int size) {
 }
 
 void bip(int duration, int freq) {
+	if (mute) return;
   analogWriteFrequency(BUZZER,freq);
   analogWrite(BUZZER, 128);
   tickBuzzOff.once_ms(duration, []() {

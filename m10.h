@@ -1,3 +1,5 @@
+//Portions from https://github.com/dbdexter-dev/sondedump/tree/master/sonde/dfm09
+//under MIT license
 #ifndef __M10_H__
 #define __M10_H__
 extern Sonde m10;
@@ -48,6 +50,9 @@ typedef struct __attribute__((packed)) {
 	uint8_t serial[5];
 	uint8_t seq;
 } M10Frame_9f;
+
+bool manchesterDecode(uint8_t* data, uint8_t* out, int len);
+uint16_t m10CrcStep(uint16_t c, uint8_t b);
 
 #define M10_PACKET_LENGTH 202
 #endif
