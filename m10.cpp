@@ -9,7 +9,7 @@ static void processPacket(uint8_t buf[]);
 
 Sonde m10={
   .name="M10",
-  .bitRate=9600,
+  .bitRate=9615,
   .frequencyDeviation= 12500,//?
   .bandWidth=SX126X_GFSK_BW_14600,
   .packetLength=M10_PACKET_LENGTH,

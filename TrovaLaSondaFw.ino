@@ -18,12 +18,13 @@
 #include "m10.h"
 #include "m20.h"
 #include "dfm.h"
+#include "Ble.h"
 
 const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN=GPIO_NUM_1, ADC_CTRL_PIN=GPIO_NUM_37,BATTERY_SAMPLES=GPIO_NUM_20, BUZZER = GPIO_NUM_46;
-uint32_t freq = 402870;//402000;//405950;
-int frame = 0, nBytesRead = 0, currentSonde=3;
-int16_t rssi;
-bool encrypted = false, mute = true;
+uint32_t freq = 405950;
+int frame = 0, currentSonde=0;
+int rssi, mute, batt;
+bool encrypted = false, connected=false;
 char serial[SERIAL_LENGTH + 1] = "";
 float lat = 0, lng = 0, alt = 0;
 struct sx126x_long_pkt_rx_state pktRxState;
@@ -107,18 +108,24 @@ void setup() {
   initDisplay();
   delay(1000);
   initRadio();
+  BLEInit();
 }
 
 void loop() {
-  static uint64_t tLastDisplay = 0;
+  static uint64_t tLastDisplay = 0, tLastBLELoop=0;
   
+  if (tLastBLELoop==0 || millis()-tLastBLELoop>500) {
+    tLastBLELoop=millis();
+    BLELoop();
+  }
   if (loopRadio()) {
     bip(150, constrain(map(alt, 0, 40000, 150, 9000), 150, 9000));
     flash(10);
   }
   if (tLastDisplay == 0 || millis() - tLastDisplay > 1000) {
     tLastDisplay = millis();
-    updateDisplay(freq, sondes[currentSonde]->name, false, false, serial, getBattLevel(), rssi, lat, lng, alt);
+    batt = getBattLevel();
+    updateDisplay(freq, sondes[currentSonde]->name, mute, connected, serial, batt, rssi, lat, lng, alt);
   }
   switch (button.read()) {
     case MD_KeySwitch::KS_PRESS:

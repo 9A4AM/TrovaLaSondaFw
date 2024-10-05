@@ -11,6 +11,7 @@
 #include "rs41.h"
 
 uint8_t buf[RS41_PACKET_LENGTH];
+int nBytesRead = 0;
 
 void initRadio() {
   char s[20];
@@ -101,7 +102,7 @@ bool loopRadio() {
 
   if (sondes[currentSonde]->packetLength>255) {
     if (digitalRead(RADIO_DIO_1) == HIGH) {
-      //Serial.println("SYNC");
+      Serial.println("SYNC");
       tLastPacket = tLastRead = millis();
       nBytesRead = 0;
       res = sx126x_clear_irq_status(NULL, SX126X_IRQ_SYNC_WORD_VALID);
@@ -126,6 +127,7 @@ bool loopRadio() {
 	res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, sizeof buf - nBytesRead);
       
       if (nBytesRead == sizeof buf) {
+	Serial.println("loopRadio");
 	sx126x_long_pkt_rx_complete(NULL);
 	sx126x_long_pkt_set_rx_with_timeout_in_rtc_step(NULL, &pktRxState, SX126X_RX_CONTINUOUS);
 	tLastRead = 0;
@@ -154,7 +156,9 @@ bool loopRadio() {
   }
   if (!validPacket) {
       if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {
-	sx126x_get_rssi_inst(NULL, &rssi);
+	int16_t t;
+	sx126x_get_rssi_inst(NULL, &t);
+	rssi=t;
 	//Serial.printf("rssi: %d\n", rssi);
 	tLastRSSI = millis();
       }

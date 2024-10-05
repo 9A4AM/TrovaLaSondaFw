@@ -22,11 +22,11 @@ typedef struct Sonde_s {
 extern const uint8_t flipByte[];
 extern Sonde *sondes[];
 extern uint32_t freq;
-extern int frame, nBytesRead, currentSonde;
+extern int frame, currentSonde;
 extern const uint8_t flipByte[];//TODO:
 extern struct sx126x_long_pkt_rx_state pktRxState;
-extern int16_t rssi;
-extern bool encrypted;
+extern int rssi, mute, batt;
+extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
 extern float lat, lng, alt;
 
