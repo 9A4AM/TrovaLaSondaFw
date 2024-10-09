@@ -3,4 +3,12 @@
 
 void BLELoop();
 void BLEInit();
+
+void BLENotifyLat();
+void BLENotifyLon();
+void BLENotifyAlt();
+void BLENotifyBatt();
+void BLENotifyRSSI();
+void BLENotifySerial();
+void BLENotifyFrame();
 #endif

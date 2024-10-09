@@ -4,7 +4,7 @@
 #include "dfm.h"
 #include "m10.h"
 
-static void processPacket(uint8_t buf[]);
+static bool processPacket(uint8_t buf[]);
 
 Sonde dfm={
   .name="DFM",
@@ -139,28 +139,28 @@ static void processDat(uint8_t type, uint8_t* data) {
   }
 }
 
-static void processPacket(uint8_t buf[]) {
+static bool processPacket(uint8_t buf[]) {
   uint8_t out[(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) / 2];
   if (manchesterDecode(buf, out, DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4)) {
     Serial.println("----------------------------------------------");
     for (int k = 0; k < NPACKETS; k++) {
       /////////////////////////////////////////////
       /*for (int i = 0; i < 33; i++) {
-	uint8_t b = out[i + k * 35];
-	for (int j = 0; j < 8; j++) {
-	  putchar('0' + (1 & (b >> 7)));
-	  b <<= 1;
-	}
+  uint8_t b = out[i + k * 35];
+  for (int j = 0; j < 8; j++) {
+    putchar('0' + (1 & (b >> 7)));
+    b <<= 1;
+  }
       }
       putchar('\n');*/
       //dump(out + 1, 33);
       /////////////////////////////////////////////
 
       if (k > 0)
-	if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
-	  Serial.printf("Syncword errata %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
-	  continue;
-	}
+  if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
+    Serial.printf("Syncword errata %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
+    continue;
+  }
 
       uint8_t conf[7], dat1[13], dat2[13];
       deinterleave(out + k * 35, conf, 7);
@@ -170,13 +170,13 @@ static void processPacket(uint8_t buf[]) {
 
       int err = hamming(conf, 7);
       if (err < 0)
-	Serial.println("ECC conf");
+        Serial.println("ECC conf");
       err = hamming(dat1, 13);
       if (err < 0)
-	Serial.println("DAT1 conf");
+        Serial.println("DAT1 conf");
       err = hamming(dat2, 13);
       if (err < 0)
-	Serial.println("DAT2 conf");
+        Serial.println("DAT2 conf");
 
       uint8_t confType = conf[0] >> 4;
       Serial.printf("conf type: %1X, data: ", confType);
@@ -196,7 +196,9 @@ static void processPacket(uint8_t buf[]) {
       processConf(confType, conf);
       processDat(dat1Type, dat1);
       processDat(dat2Type, dat2);
+      return true;
     }
   } else
     Serial.println("Errore codifica manchester");
+  return false;
 }

@@ -44,10 +44,12 @@ class MyCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
     if (pCharacteristic == pFreqChar) {
       Serial.printf("Freq: %d\n", freq = *(uint32_t *)pCharacteristic->getData());
+      savePrefs();
       initRadio();
     }
     else if (pCharacteristic == pTypeChar) {
       Serial.printf("Type: %d\n", currentSonde = *(int *)pCharacteristic->getData());
+      savePrefs();
       initRadio();
     }
     else if (pCharacteristic == pMuteChar)
@@ -112,43 +114,43 @@ void BLEInit() {
   BLEDevice::startAdvertising();
 }
 
-void notifyLat() {
+void BLENotifyLat() {
   if (!connected) return;
   pLatChar->setValue(lat);
   pLatChar->notify();
 }
 
-void notifyLon() {
+void BLENotifyLon() {
   if (!connected) return;
   pLonChar->setValue(lng);
   pLonChar->notify();
 }
 
-void notifyAlt() {
+void BLENotifyAlt() {
   if (!connected) return;
   pAltChar->setValue(alt);
   pAltChar->notify();
 }
 
-void notifyBatt() {
+void BLENotifyBatt() {
   if (!connected) return;
   pBattChar->setValue(batt);
   pBattChar->notify();
 }
 
-void notifyRSSI() {
+void BLENotifyRSSI() {
   if (!connected) return;
   pRSSIChar->setValue(rssi);
   pRSSIChar->notify();
 }
 
-void notifySerial() {
+void BLENotifySerial() {
   if (!connected) return;
   pSerialChar->setValue(serial);
   pSerialChar->notify();
 }
 
-void notifyFrame() {
+void BLENotifyFrame() {
   if (!connected) return;
   pFrameChar->setValue(frame);
   pFrameChar->notify();
@@ -156,14 +158,9 @@ void notifyFrame() {
 
 void BLELoop() {
   static bool startAdvertising=false;
-  Serial.printf("BLE connections: %d\n",pServer->getConnectedCount());
-  if (connected) {
-    notifyFrame();
-    frame++;
-  }
-  if (startAdvertising) {
+  if (startAdvertising) 
     pServer->startAdvertising();
-  }
+  
   if (connected && !wasConnected)
     wasConnected = connected;
   if (!connected && wasConnected)  {

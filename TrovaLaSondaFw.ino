@@ -6,7 +6,7 @@
 #include <driver/board-config.h>
 #include <Ticker.h>
 #include <MD_KeySwitch.h>
-#include <EEPROM.h>
+#include <Preferences.h>
 #include "disp.h"
 #include "radio.h"
 #include "sx126x.h"
@@ -49,7 +49,7 @@ const uint8_t flipByte[] = {
   };
 // clang-format on
 Sonde *sondes[]={ &rs41, &m10, &m20, &dfm };
-
+Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
 
@@ -60,7 +60,7 @@ void dump(uint8_t buf[], int size) {
 }
 
 void bip(int duration, int freq) {
-	if (mute) return;
+  if (mute) return;
   analogWriteFrequency(BUZZER,freq);
   analogWrite(BUZZER, 128);
   tickBuzzOff.once_ms(duration, []() {
@@ -93,6 +93,19 @@ int getBattLevel() {
   return constrain(map(raw,670,950,0,100),0,100);
 }
 
+void savePrefs() {
+	preferences.begin("TLS",false);
+  preferences.putInt("freq",freq);
+  preferences.putShort("type",currentSonde);
+  preferences.end();
+}
+
+void readPrefs() {
+  preferences.begin("TLS",true);
+  freq=preferences.getInt("freq",403000);
+  currentSonde=preferences.getShort("type",0);
+  preferences.end();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -104,6 +117,7 @@ void setup() {
   button.enableRepeat(false);
   button.enableLongPress(true);
   button.setLongPressTime(1000);
+  readPrefs();
   bip(200,440);
   initDisplay();
   delay(1000);
@@ -126,6 +140,8 @@ void loop() {
     tLastDisplay = millis();
     batt = getBattLevel();
     updateDisplay(freq, sondes[currentSonde]->name, mute, connected, serial, batt, rssi, lat, lng, alt);
+    BLENotifyBatt();
+    BLENotifyRSSI();
   }
   switch (button.read()) {
     case MD_KeySwitch::KS_PRESS:

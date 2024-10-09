@@ -5,7 +5,7 @@
 #include "TrovaLaSondaFw.h"
 #include "m10.h"
 
-static void processPacket(uint8_t buf[]);
+static bool processPacket(uint8_t buf[]);
 
 Sonde m10={
   .name="M10",
@@ -107,7 +107,7 @@ static int m10_frame_correct(M10Frame_9f *frame) {
 	return (crc == expected) ? 0 : -1;
 }
 
- static void processPacket(uint8_t buf[]) {
+ static bool processPacket(uint8_t buf[]) {
   static M10Frame_9f frame;
   frame.sync_mark[0]=0x55;
   frame.sync_mark[1]=0x55;
@@ -126,8 +126,10 @@ static int m10_frame_correct(M10Frame_9f *frame) {
       lng=m10_9f_lon(&frame);
       alt=m10_9f_alt(&frame);
       //TODO: frame #
+      return true;
     }
     else
       Serial.println("Errore CRC");
   }
+  return false;
 }

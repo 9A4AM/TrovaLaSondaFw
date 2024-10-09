@@ -9,6 +9,7 @@
 #include "sx126x_long_pkt.h"
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
+#include "Ble.h"
 
 uint8_t buf[RS41_PACKET_LENGTH];
 int nBytesRead = 0;
@@ -102,7 +103,7 @@ bool loopRadio() {
 
   if (sondes[currentSonde]->packetLength>255) {
     if (digitalRead(RADIO_DIO_1) == HIGH) {
-      Serial.println("SYNC");
+      //Serial.println("SYNC");
       tLastPacket = tLastRead = millis();
       nBytesRead = 0;
       res = sx126x_clear_irq_status(NULL, SX126X_IRQ_SYNC_WORD_VALID);
@@ -117,25 +118,24 @@ bool loopRadio() {
       uint8_t read;
       res = sx126x_long_pkt_rx_get_partial_payload(NULL, &pktRxState, buf + nBytesRead, sizeof buf - nBytesRead, &read);
       if (read == 0) {
-	tLastRead = 0;
-	nBytesRead = 0;
-	validPacket=false;
+        tLastRead = 0;
+        nBytesRead = 0;
+        validPacket=false;
       }
       //Serial.printf("READ %d\n", read);
       nBytesRead += read;
       if (sizeof buf - nBytesRead <= 255)
-	res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, sizeof buf - nBytesRead);
+        res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, sizeof buf - nBytesRead);
       
       if (nBytesRead == sizeof buf) {
-	Serial.println("loopRadio");
-	sx126x_long_pkt_rx_complete(NULL);
-	sx126x_long_pkt_set_rx_with_timeout_in_rtc_step(NULL, &pktRxState, SX126X_RX_CONTINUOUS);
-	tLastRead = 0;
-	nBytesRead = 0;
-	
-	//dump(buf, sizeof buf);
-	sondes[currentSonde]->processPacket(buf);
-	validPacket=true;
+        sx126x_long_pkt_rx_complete(NULL);
+        sx126x_long_pkt_set_rx_with_timeout_in_rtc_step(NULL, &pktRxState, SX126X_RX_CONTINUOUS);
+        tLastRead = 0;
+        nBytesRead = 0;
+        
+        //dump(buf, sizeof buf);
+        sondes[currentSonde]->processPacket(buf);
+        validPacket=true;
       }
     } 
   }
@@ -150,19 +150,26 @@ bool loopRadio() {
       rssi = pktStatus.rssi_avg ;
       Serial.printf("PKT %d bytes\n", bufStatus.pld_len_in_bytes);
       //dump(buf, PACKET_LENGTH);
-      sondes[currentSonde]->processPacket(buf);
-      validPacket=true;
+      validPacket = sondes[currentSonde]->processPacket(buf);
     }
   }
-  if (!validPacket) {
+  if (validPacket) {
+    Serial.println("NOTIFICHE");
+    BLENotifyLat();
+    BLENotifyLon();
+    BLENotifyAlt();
+    BLENotifyFrame();
+    BLENotifySerial();
+  }
+  else {
       if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {
-	int16_t t;
-	sx126x_get_rssi_inst(NULL, &t);
-	rssi=t;
-	//Serial.printf("rssi: %d\n", rssi);
-	tLastRSSI = millis();
+        int16_t t;
+        sx126x_get_rssi_inst(NULL, &t);
+        rssi=t;
+        //Serial.printf("rssi: %d\n", rssi);
+        tLastRSSI = millis();
       }
-    }
+  }
 
   return validPacket;
 }

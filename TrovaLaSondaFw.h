@@ -16,7 +16,7 @@ typedef struct Sonde_s {
   bool flipBytes;
   uint8_t syncWord[SYNCWORD_SIZE];
   
-  void(*processPacket)(uint8_t buf[]);
+  bool (*processPacket)(uint8_t buf[]);
 } Sonde;
 
 extern const uint8_t flipByte[];
@@ -31,4 +31,5 @@ extern char serial[SERIAL_LENGTH + 1];
 extern float lat, lng, alt;
 
 void dump(uint8_t buf[], int size);
+void savePrefs();
 #endif

@@ -6,7 +6,7 @@
 #include "m10.h"
 #include "m20.h"
 
-static void processPacket(uint8_t buf[]);
+static bool processPacket(uint8_t buf[]);
 
 Sonde m20={
   .name="M20",
@@ -55,7 +55,7 @@ static void decodeFrame(uint8_t *a) {
     Serial.printf("Serial:%s\n",serial);
 }
 
- static void processPacket(uint8_t buf[]) {
+ static bool processPacket(uint8_t buf[]) {
   uint8_t frame[M20_PACKET_LENGTH/2], out[M20_PACKET_LENGTH/2];
   if (manchesterDecode(buf, frame, M20_PACKET_LENGTH)) {
     for (int i=0;i<M20_PACKET_LENGTH/2;i++) frame[i]=~frame[i];
@@ -64,7 +64,10 @@ static void decodeFrame(uint8_t *a) {
     descramble(frame, out);
     //Serial.println("descramble");
     //dump(out, M20_PACKET_LENGTH/2);
-    if (checkCrc(out)) 
+    if (checkCrc(out))  {
       decodeFrame(out);
+      return true;
+    }
   }
+  return false;
 }

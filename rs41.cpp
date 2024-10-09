@@ -7,7 +7,7 @@
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 
-static void processPacket(uint8_t buf[]);
+static bool processPacket(uint8_t buf[]);
 
 Sonde rs41={
   .name="RS41",
@@ -95,9 +95,10 @@ static void ecef2wgs84(float x, float y, float z, float& lat, float& lng, float&
   height = h;
 }
 
-static void processPacket(uint8_t buf[]) {
+static bool processPacket(uint8_t buf[]) {
+  //TODO: AUX
   float x, y, z;
-  int n = 48 + 1;
+  int svs, n = 48 + 1;
 
   frame = 0;
   strcpy(serial, "????????");
@@ -119,16 +120,18 @@ static void processPacket(uint8_t buf[]) {
             frame = buf[n + 2] + (buf[n + 3] << 8);
             Serial.printf(" frame: %d [%.8s]", frame, buf + n + 4);
 
-            strncpy(serial, (char*)buf + n + 4, sizeof serial - 1);
-            serial[sizeof serial - 1] = 0;
+            strncpy(serial, (char*)buf + n + 4, 8);
+            serial[8] = 0;
             break;
           case 0x7B:  //GPSPOS
-            x = buf[n + 2] + 256 * (buf[n + 3] + 256 * (buf[n + 4] + 256 * buf[n + 5])) / 100.0;
-            y = buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9])) / 100.0;
-            z = buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13])) / 100.0;
-            ecef2wgs84(x, y, z, lat, lng, alt);
-            Serial.printf(" lat:%f lon:%f h:%f", lat, lng, alt);
-
+            svs = buf[n+0x14];
+            if (svs>=3) {
+              x = buf[n + 2] + 256 * (buf[n + 3] + 256 * (buf[n + 4] + 256 * buf[n + 5])) / 100.0;
+              y = buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9])) / 100.0;
+              z = buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13])) / 100.0;
+              ecef2wgs84(x, y, z, lat, lng, alt);
+              Serial.printf(" lat:%f lon:%f h:%f svs:%d", lat, lng, alt,svs);
+            }
             break;
           case 0x80:  //CRYPTO
             encrypted = true;
@@ -138,6 +141,9 @@ static void processPacket(uint8_t buf[]) {
       n += blockLength + 4;
     }
   }
+  else
+    return false;
   Serial.println();
+  return true;
 }
 
