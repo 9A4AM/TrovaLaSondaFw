@@ -11,7 +11,7 @@ static bool processPacket(uint8_t buf[]);
 Sonde m20={
   .name="M20",
   .bitRate=9600,
-  .frequencyDeviation= 3600,//?
+  .frequencyDeviation= 12500,//?
   .bandWidth=SX126X_GFSK_BW_14600,
   .packetLength=M20_PACKET_LENGTH,
   .preambleLength=SX126X_GFSK_PREAMBLE_DETECTOR_OFF,

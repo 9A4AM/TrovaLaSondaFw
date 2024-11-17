@@ -32,4 +32,5 @@ extern float lat, lng, alt;
 
 void dump(uint8_t buf[], int size);
 void savePrefs();
+void bip(int duration, int freq);
 #endif

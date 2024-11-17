@@ -6,17 +6,17 @@
 
 static bool processPacket(uint8_t buf[]);
 
-Sonde dfm={
-  .name="DFM",
-  .bitRate=2500,
-  .frequencyDeviation= 10400,//?
-  .bandWidth=SX126X_GFSK_BW_11700,
-  .packetLength= DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1), //HACK!
-  .preambleLength=SX126X_GFSK_PREAMBLE_DETECTOR_OFF,
-  .syncWordLen=16,
-  .flipBytes=false,
-  .syncWord={ /*0x9A, 0x99,*/ 0x5A, 0x55 },
-  .processPacket=processPacket
+Sonde dfm = {
+  .name = "DFM",
+  .bitRate = 2500,
+  .frequencyDeviation = 10400,  //?
+  .bandWidth = SX126X_GFSK_BW_11700,
+  .packetLength = DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1),  //HACK!
+  .preambleLength = SX126X_GFSK_PREAMBLE_DETECTOR_OFF,
+  .syncWordLen = 16,
+  .flipBytes = false,
+  .syncWord = { /*0x9A, 0x99,*/ 0x5A, 0x55 },
+  .processPacket = processPacket
 };
 
 static void deinterleave(uint8_t* in, uint8_t* out, int len) {
@@ -141,26 +141,27 @@ static void processDat(uint8_t type, uint8_t* data) {
 
 static bool processPacket(uint8_t buf[]) {
   uint8_t out[(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) / 2];
+  bool valid=true;
+
   if (manchesterDecode(buf, out, DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4)) {
     Serial.println("----------------------------------------------");
     for (int k = 0; k < NPACKETS; k++) {
       /////////////////////////////////////////////
-      /*for (int i = 0; i < 33; i++) {
-  uint8_t b = out[i + k * 35];
-  for (int j = 0; j < 8; j++) {
-    putchar('0' + (1 & (b >> 7)));
-    b <<= 1;
-  }
+      for (int i = 0; i < 33; i++) {
+        uint8_t b = out[i + k * 35];
+        for (int j = 0; j < 8; j++) {
+          putchar('0' + (1 & (b >> 7)));
+          b <<= 1;
+        }
       }
-      putchar('\n');*/
-      //dump(out + 1, 33);
+      putchar('\n');
       /////////////////////////////////////////////
 
       if (k > 0)
-  if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
-    Serial.printf("Syncword errata %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
-    continue;
-  }
+        if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
+          Serial.printf("Syncword errata %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
+          continue;
+        }
 
       uint8_t conf[7], dat1[13], dat2[13];
       deinterleave(out + k * 35, conf, 7);
@@ -169,14 +170,22 @@ static bool processPacket(uint8_t buf[]) {
       //dump(conf, 7);
 
       int err = hamming(conf, 7);
-      if (err < 0)
-        Serial.println("ECC conf");
+      if (err < 0) {
+        Serial.println("ECC CONF");
+        valid=false;
+      }
       err = hamming(dat1, 13);
-      if (err < 0)
-        Serial.println("DAT1 conf");
+      if (err < 0) {
+        Serial.println("ECC DAT1");
+        valid=false;
+      }
       err = hamming(dat2, 13);
-      if (err < 0)
-        Serial.println("DAT2 conf");
+      if (err < 0) {
+        Serial.println("ECC DAT2 ");
+        valid=false;
+      }
+
+      if (!valid) return false;
 
       uint8_t confType = conf[0] >> 4;
       Serial.printf("conf type: %1X, data: ", confType);

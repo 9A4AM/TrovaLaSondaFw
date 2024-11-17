@@ -173,3 +173,7 @@ bool loopRadio() {
 
   return validPacket;
 }
+
+void sleepRadio() {
+  sx126x_set_sleep(NULL,SX126X_SLEEP_CFG_COLD_START);
+}

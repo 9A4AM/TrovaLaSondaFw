@@ -52,8 +52,10 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       savePrefs();
       initRadio();
     }
-    else if (pCharacteristic == pMuteChar)
+    else if (pCharacteristic == pMuteChar) {
       Serial.printf("Mute: %d\n", mute = *(int *)pCharacteristic->getData());
+      if (!mute) bip(80,440);
+    }
   }
 };
 

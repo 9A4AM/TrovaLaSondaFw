@@ -20,11 +20,11 @@
 #include "dfm.h"
 #include "Ble.h"
 
-const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN=GPIO_NUM_1, ADC_CTRL_PIN=GPIO_NUM_37,BATTERY_SAMPLES=GPIO_NUM_20, BUZZER = GPIO_NUM_46;
+const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BATTERY_SAMPLES = GPIO_NUM_20, BUZZER = GPIO_NUM_46;
 uint32_t freq = 405950;
-int frame = 0, currentSonde=0;
+int frame = 0, currentSonde = 0;
 int rssi, mute, batt;
-bool encrypted = false, connected=false;
+bool encrypted = false, connected = false;
 char serial[SERIAL_LENGTH + 1] = "";
 float lat = 0, lng = 0, alt = 0;
 struct sx126x_long_pkt_rx_state pktRxState;
@@ -48,20 +48,20 @@ const uint8_t flipByte[] = {
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
   };
 // clang-format on
-Sonde *sondes[]={ &rs41, &m10, &m20, &dfm };
+Sonde *sondes[] = { &rs41, &m20, &m10, &m10, &dfm };
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
 
 void dump(uint8_t buf[], int size) {
   for (int i = 0; i < size; i++)
-    Serial.printf("0x%02X,%c", buf[i], i % 16 == 15 ? '\n': ' ');
+    Serial.printf("0x%02X,%c", buf[i], i % 16 == 15 ? '\n' : ' ');
   if (size % 16 != 0) Serial.println();
 }
 
 void bip(int duration, int freq) {
   if (mute) return;
-  analogWriteFrequency(BUZZER,freq);
+  analogWriteFrequency(BUZZER, freq);
   analogWrite(BUZZER, 128);
   tickBuzzOff.once_ms(duration, []() {
     analogWrite(BUZZER, 0);
@@ -85,25 +85,25 @@ int getBattLevel() {
   delay(10);
 
   uint32_t raw = 0;
-  for (int i = 0; i < BATTERY_SAMPLES; i++) 
+  for (int i = 0; i < BATTERY_SAMPLES; i++)
     raw += analogRead(VBAT_PIN);
-  
+
   raw /= BATTERY_SAMPLES;
   digitalWrite(ADC_CTRL_PIN, HIGH);
-  return constrain(map(raw,670,950,0,100),0,100);
+  return constrain(map(raw, 670, 950, 0, 100), 0, 100);
 }
 
 void savePrefs() {
-	preferences.begin("TLS",false);
-  preferences.putInt("freq",freq);
-  preferences.putShort("type",currentSonde);
+  preferences.begin("TLS", false);
+  preferences.putInt("freq", freq);
+  preferences.putShort("type", currentSonde);
   preferences.end();
 }
 
 void readPrefs() {
-  preferences.begin("TLS",true);
-  freq=preferences.getInt("freq",403000);
-  currentSonde=preferences.getShort("type",0);
+  preferences.begin("TLS", true);
+  freq = preferences.getInt("freq", 403000);
+  currentSonde = preferences.getShort("type", 0);
   preferences.end();
 }
 
@@ -118,7 +118,7 @@ void setup() {
   button.enableLongPress(true);
   button.setLongPressTime(1000);
   readPrefs();
-  bip(200,440);
+  bip(200, 440);
   initDisplay();
   delay(1000);
   initRadio();
@@ -126,10 +126,10 @@ void setup() {
 }
 
 void loop() {
-  static uint64_t tLastDisplay = 0, tLastBLELoop=0;
-  
-  if (tLastBLELoop==0 || millis()-tLastBLELoop>500) {
-    tLastBLELoop=millis();
+  static uint64_t tLastDisplay = 0, tLastBLELoop = 0;
+
+  if (tLastBLELoop == 0 || millis() - tLastBLELoop > 500) {
+    tLastBLELoop = millis();
     BLELoop();
   }
   if (loopRadio()) {
@@ -147,9 +147,12 @@ void loop() {
     case MD_KeySwitch::KS_PRESS:
       break;
     case MD_KeySwitch::KS_LONGPRESS:
+      sx126x_set_sleep(NULL, SX126X_SLEEP_CFG_COLD_START);
       esp_sleep_enable_ext0_wakeup(BUTTON, 0);
       displayOff();
-      while (digitalRead(BUTTON) == LOW) ;
+
+      while (digitalRead(BUTTON) == LOW)
+        ;
       delay(100);
       esp_deep_sleep_start();
       break;
