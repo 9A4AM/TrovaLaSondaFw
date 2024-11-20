@@ -1,5 +1,9 @@
 #ifndef __RS41_HELTECV3_H__
 #define __RS41_HELTECV3_H__
+#include "sx126x.h"
+#include "sx126x_regs.h"
+#include "sx126x_hal.h"
+#include "sx126x_long_pkt.h"
 
 #define PACKET_LENGTH 312
 #define SERIAL_LENGTH 12
@@ -29,6 +33,10 @@ extern int rssi, mute, batt;
 extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
 extern float lat, lng, alt;
+extern char version[];
+
+extern bool otaRunning;
+extern int otaLength, otaErr, otaProgress;
 
 void dump(uint8_t buf[], int size);
 void savePrefs();

@@ -3,7 +3,6 @@
 #include <stddef.h>
 #include <CRC.h>
 #include <RS-FEC.h>
-#include "sx126x.h"
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 

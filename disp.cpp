@@ -1,4 +1,5 @@
 #include <HT_SSD1306Wire.h>
+#include "TrovaLaSondaFw.h"
 #include "disp.h"
 
 const int BATT_W = 14, BATT_H = 30, BATT_X = 113, BATT_Y = 28,
@@ -50,10 +51,28 @@ void initDisplay() {
   display.setTextAlignment(TEXT_ALIGN_CENTER);
   display.drawString(65, 32, "TrovaLaSonda");
   display.drawString(64, 32, "TrovaLaSonda");
-  display.drawString(64, 47, "0.0");
-  display.drawString(65, 47, "0.0");
+  display.drawString(64, 47, version);
+  display.drawString(65, 47, version);
   display.display();
   vTaskDelay(2000);
+}
+
+void displayOTA() {
+  display.clear();
+  display.setFont(ArialMT_Plain_24);
+  display.setTextAlignment(TEXT_ALIGN_CENTER_BOTH);
+  if (otaErr == 0) {
+    display.drawString(64, 25, "UPDATE");
+    if (otaLength != 0)
+      display.drawProgressBar(0, 48, 125, 10, otaProgress * 100 / otaLength);
+  } else {
+    char s[12];
+    display.drawString(64, 28, "ERROR");
+    sprintf(s,"%d",otaErr);
+    display.drawString(64, 47, s);
+  }
+
+  display.display();
 }
 
 void displayOff() {

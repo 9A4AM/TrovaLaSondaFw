@@ -4,12 +4,15 @@
 #include <BLE2902.h>
 #include <BLE2901.h>
 #include <esp_mac.h>
+#include <esp_partition.h>
+#include <esp_ota_ops.h>
 #include "Ble.h"
 #include "sx126x.h"
 #include "TrovaLaSondaFw.h"
 #include "radio.h"
 
 #define SERVICE_UUID "79ee1705-f663-4674-8774-55042fc215f5"
+#define OTA_SERVICE_UUID "0410c8a6-2c9c-4d6a-9f0e-4bc0ff7e0f7e"
 #define LAT_UUID "fc62efe0-eb5d-4cb0-93d3-01d4fb083e18"
 #define LON_UUID "c8666b42-954a-420f-b235-6baaba740840"
 #define ALT_UUID "1bfdccfe-80f4-46d0-844f-ad8410001989"
@@ -20,12 +23,15 @@
 #define TYPE_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
 #define FREQ_UUID "b4da41fe-3194-42e7-8bbb-2e11d3ff6f6d"
 #define MUTE_UUID "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
+#define OTA_UUID "63fa4cbe-3a81-463f-aa84-049dea77a209"
+//TODO: caratteristica info versione
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pSerialChar, *pFrameChar,
-  *pBattChar, *pRSSIChar, *pTypeChar, *pFreqChar, *pMuteChar;
+  *pBattChar, *pRSSIChar, *pTypeChar, *pFreqChar, *pMuteChar, *pRxChr, *pTxChr;
 BLE2901 *descriptor_2901 = NULL;
 bool wasConnected = false;
+esp_ota_handle_t handleOta;
 
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer *pServer/*,esp_ble_gatts_cb_param_t *param*/) {
@@ -42,7 +48,47 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
 class MyCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    if (pCharacteristic == pFreqChar) {
+    if (pCharacteristic->getUUID().equals(BLEUUID(OTA_UUID))) {
+      int nLen=pCharacteristic->getLength();
+      if (!otaRunning) {
+        if (nLen!=8) return;
+        uint8_t *p=pCharacteristic->getData();
+        if (p[0]!=0x48 || p[1]!=0x53 || p[2]!=0 || p[3]!=0)
+          Serial.println("Numero magico non corrisponde!");
+        otaLength=p[4]+256*(p[5]+256*(p[6]+256*p[7]));
+        otaProgress=0;
+        Serial.printf("Lunghezza nuovo firmware : %d bytes\n",otaLength);
+        otaRunning=true;
+        const esp_partition_t *running = esp_ota_get_running_partition();
+        const esp_partition_t *next = esp_ota_get_next_update_partition(running);
+        esp_err_t err=esp_ota_begin(next,otaLength,&handleOta);
+        if (err!=ESP_OK) {
+          Serial.printf("Errore esp_ota_begin %d\n",err);
+          otaErr=err;
+          return;
+        }
+        return;
+      }
+      else {
+        esp_err_t err=esp_ota_write(handleOta,pCharacteristic->getData(),nLen);
+        otaProgress+=nLen;
+        if (err!=ESP_OK) {
+          Serial.printf("Errore esp_ota_write %d\n",err);
+          otaErr=err;
+          return;
+        }
+        if (otaProgress==otaLength) {
+          esp_ota_end(handleOta);
+          const esp_partition_t *running=esp_ota_get_running_partition(),
+            *next = esp_ota_get_next_update_partition(running);
+
+          esp_ota_set_boot_partition(next);
+          delay(1000);
+          ESP.restart();
+        }
+      }
+    }
+    else if (pCharacteristic == pFreqChar) {
       Serial.printf("Freq: %d\n", freq = *(uint32_t *)pCharacteristic->getData());
       savePrefs();
       initRadio();
@@ -106,11 +152,15 @@ void BLEInit() {
   pFreqChar->setValue(freq);
   pTypeChar->setValue(currentSonde);
   pMuteChar->setValue(mute);
+  pService->start();
 
+  pService = pServer->createService(BLEUUID(OTA_SERVICE_UUID), 90);
+  createCharacteristic(pService, "RX", OTA_UUID, &pRxChr, true);
   pService->start();
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
+  pAdvertising->addServiceUUID(OTA_SERVICE_UUID);
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();

@@ -1,7 +1,6 @@
 //Portions from https://github.com/dbdexter-dev/sondedump/tree/master/sonde/dfm09
 //under MIT license
 #include <arduino.h>
-#include "sx126x.h"
 #include "TrovaLaSondaFw.h"
 #include "m10.h"
 

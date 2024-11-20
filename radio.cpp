@@ -3,10 +3,6 @@
 #include <HT_SSD1306Wire.h>
 #include <driver/board-config.h>
 #include "radio.h"
-#include "sx126x.h"
-#include "sx126x_regs.h"
-#include "sx126x_hal.h"
-#include "sx126x_long_pkt.h"
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 #include "Ble.h"

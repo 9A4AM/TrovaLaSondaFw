@@ -7,12 +7,10 @@
 #include <Ticker.h>
 #include <MD_KeySwitch.h>
 #include <Preferences.h>
+#include <esp_partition.h>
+#include <esp_ota_ops.h>
 #include "disp.h"
 #include "radio.h"
-#include "sx126x.h"
-#include "sx126x_regs.h"
-#include "sx126x_hal.h"
-#include "sx126x_long_pkt.h"
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 #include "m10.h"
@@ -27,6 +25,11 @@ int rssi, mute, batt;
 bool encrypted = false, connected = false;
 char serial[SERIAL_LENGTH + 1] = "";
 float lat = 0, lng = 0, alt = 0;
+char version[]="0.6";
+
+bool otaRunning = false;
+int otaLength=0, otaErr=0, otaProgress=0;
+
 struct sx126x_long_pkt_rx_state pktRxState;
 // clang-format off
 const uint8_t flipByte[] = {
@@ -123,6 +126,15 @@ void setup() {
   delay(1000);
   initRadio();
   BLEInit();
+
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t ota_state = ESP_OTA_IMG_UNDEFINED;
+  esp_ota_get_state_partition(running, &ota_state);
+
+  if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+    Serial.println("Confermo partizione OK");
+    esp_ota_mark_app_valid_cancel_rollback();
+  }
 }
 
 void loop() {
@@ -137,11 +149,15 @@ void loop() {
     flash(10);
   }
   if (tLastDisplay == 0 || millis() - tLastDisplay > 1000) {
-    tLastDisplay = millis();
-    batt = getBattLevel();
-    updateDisplay(freq, sondes[currentSonde]->name, mute, connected, serial, batt, rssi, lat, lng, alt);
-    BLENotifyBatt();
-    BLENotifyRSSI();
+    if (otaRunning) {
+      displayOTA();
+    } else {
+      tLastDisplay = millis();
+      batt = getBattLevel();
+      updateDisplay(freq, sondes[currentSonde]->name, mute, connected, serial, batt, rssi, lat, lng, alt);
+      BLENotifyBatt();
+      BLENotifyRSSI();
+    }
   }
   switch (button.read()) {
     case MD_KeySwitch::KS_PRESS:

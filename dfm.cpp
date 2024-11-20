@@ -1,5 +1,4 @@
 #include <arduino.h>
-#include "sx126x.h"
 #include "TrovaLaSondaFw.h"
 #include "dfm.h"
 #include "m10.h"
