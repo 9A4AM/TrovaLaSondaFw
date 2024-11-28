@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# NON FUNZIONA IN WINDOWS
 import asyncio,struct,sys
 from bleak import BleakScanner, BleakClient
 

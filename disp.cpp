@@ -68,7 +68,8 @@ void displayOTA() {
   } else {
     char s[12];
     display.drawString(64, 28, "ERROR");
-    sprintf(s,"%d",otaErr);
+    sprintf(s,"0x%X",otaErr);
+    display.setFont(ArialMT_Plain_16);
     display.drawString(64, 47, s);
   }
 

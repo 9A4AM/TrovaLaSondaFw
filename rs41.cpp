@@ -6,6 +6,8 @@
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 
+//TODO: velocity
+
 static bool processPacket(uint8_t buf[]);
 
 Sonde rs41={
@@ -96,7 +98,7 @@ static void ecef2wgs84(float x, float y, float z, float& lat, float& lng, float&
 
 static bool processPacket(uint8_t buf[]) {
   //TODO: AUX
-  float x, y, z;
+  float x, y, z, vx, vy;
   int svs, n = 48 + 1;
 
   frame = 0;
@@ -110,6 +112,7 @@ static bool processPacket(uint8_t buf[]) {
     while (n < RS41_PACKET_LENGTH) {
       int blockType = buf[n];
       int blockLength = buf[n + 1];
+      int subframeNumber;
       uint16_t crc = calcCRC16(buf + n + 2, blockLength, CRC16_CCITT_FALSE_POLYNOME, CRC16_CCITT_FALSE_INITIAL, CRC16_CCITT_FALSE_XOR_OUT, CRC16_CCITT_FALSE_REV_IN, CRC16_CCITT_FALSE_REV_OUT);
 
       //Serial.printf("Blocco 0x%02X, lunghezza %d, CRC: %02X%02X/%02X%02X\n", blockType, blockLength, buf[n + blockLength + 3], buf[n + blockLength + 2], crc >> 8, crc & 0xFF);
@@ -117,10 +120,22 @@ static bool processPacket(uint8_t buf[]) {
         switch (blockType) {
           case 0x79:  //status
             frame = buf[n + 2] + (buf[n + 3] << 8);
-            Serial.printf(" frame: %d [%.8s]", frame, buf + n + 4);
+            Serial.printf(" frame: %d [%.8s] (subframe:%d)", frame, buf + n + 4,buf[n+2+0x17]);
 
             strncpy(serial, (char*)buf + n + 4, 8);
             serial[8] = 0;
+
+            subframeNumber=buf[n+2+0x17];
+            switch (subframeNumber) {
+              case 0x02:
+                bkStatus=buf[2+n+0x18+0x0B];
+                Serial.printf("BkStatus: %d\n",bkStatus);
+                break;
+              case 0x31:
+                bkTime=buf[2+n+0x18+6]+256*buf[2+n+0x18+7];
+                Serial.printf("BkTime: %d\n",bkTime);
+                break;
+            }
             break;
           case 0x7B:  //GPSPOS
             svs = buf[n+0x14];
@@ -129,7 +144,12 @@ static bool processPacket(uint8_t buf[]) {
               y = buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9])) / 100.0;
               z = buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13])) / 100.0;
               ecef2wgs84(x, y, z, lat, lng, alt);
-              Serial.printf(" lat:%f lon:%f h:%f svs:%d", lat, lng, alt,svs);
+
+              vx = (buf[n + 2 + 0x0C] + 256 * buf[n + 2 + 0x0D])/100.0;
+              vy = (buf[n + 2 + 0x0E] + 256 * buf[n + 2 + 0x0F])/100.0;
+              vel  = sqrt(pow(vx,2)+pow(vy,2));
+
+              Serial.printf(" lat:%f lon:%f h:%f svs:%d vel:%fm/s", lat, lng, alt, svs, vel);
             }
             break;
           case 0x80:  //CRYPTO

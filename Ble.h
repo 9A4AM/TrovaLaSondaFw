@@ -10,5 +10,5 @@ void BLENotifyAlt();
 void BLENotifyBatt();
 void BLENotifyRSSI();
 void BLENotifySerial();
-void BLENotifyFrame();
+void BLENotifyBurstKill();
 #endif

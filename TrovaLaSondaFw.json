@@ -1,0 +1,14 @@
+{
+  "db": {
+    "rdzTrovaLaSonda": {
+      "version": "0.13",
+      "info": "fixes M20 and M10 reception",
+      "file": "rdzTrovaLaSonda.ino.bin"
+    },
+    "TrovaLaSondaFw": {
+      "version": "0.7",
+      "info": "fixes minor bugs",
+      "file": "TrovaLaSondaFw.ino.bin"
+    }
+  }
+}

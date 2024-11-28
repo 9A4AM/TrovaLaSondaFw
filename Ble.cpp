@@ -16,33 +16,38 @@
 #define LAT_UUID "fc62efe0-eb5d-4cb0-93d3-01d4fb083e18"
 #define LON_UUID "c8666b42-954a-420f-b235-6baaba740840"
 #define ALT_UUID "1bfdccfe-80f4-46d0-844f-ad8410001989"
+#define VEL_UUID "9cb28ac2-fb89-4714-954b-e9292dedce60"
 #define SERIAL_UUID "539fd1f8-f427-4ddc-99d2-80f51616baab"
-#define FRAME_UUID "343b7b66-8208-4e48-949f-e62739147f92"
 #define BATT_UUID "4578ee77-f50f-4584-b59c-46264c56d949"
 #define RSSI_UUID "e482dfeb-774f-4f8b-8eea-87a752326fbd"
-#define TYPE_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
-#define FREQ_UUID "b4da41fe-3194-42e7-8bbb-2e11d3ff6f6d"
+#define TYPEFREQ_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
+#define BK_UUID "b4da41fe-3194-42e7-8bbb-2e11d3ff6f6d"
 #define MUTE_UUID "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
 #define OTA_UUID "63fa4cbe-3a81-463f-aa84-049dea77a209"
-//TODO: caratteristica info versione
+#define VERSION_UUID "2bc3ed96-a00a-4c9a-84af-7e1283835d71"
 
 BLEServer *pServer = NULL;
-BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pSerialChar, *pFrameChar,
-  *pBattChar, *pRSSIChar, *pTypeChar, *pFreqChar, *pMuteChar, *pRxChr, *pTxChr;
+BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pVelChar, *pSerialChar, *pBurstKillChar,
+  *pBattChar, *pRSSIChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pRxChr;
 BLE2901 *descriptor_2901 = NULL;
 bool wasConnected = false;
 esp_ota_handle_t handleOta;
 
 class MyServerCallbacks : public BLEServerCallbacks {
-  void onConnect(BLEServer *pServer/*,esp_ble_gatts_cb_param_t *param*/) {
+  void onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param) {
     connected = true;
-    //pServer->updateConnParams(param->connect.remote_bda,16,32,10,50);
-    Serial.println("connected");
+    //pServer->updateConnParams(param->connect.remote_bda, 6, 6, 0, 10);
+    BLEAddress a(param->connect.remote_bda);
+    Serial.printf("connected to %s\n",a.toString().c_str());
   };
 
   void onDisconnect(BLEServer *pServer) {
     connected = false;
     Serial.println("disconnected");
+  }
+
+  void onMtuChanged(BLEServer *pServer, esp_ble_gatts_cb_param_t *param) {
+    Serial.printf("onMtuChanged\n");
   }
 };
 
@@ -53,8 +58,9 @@ class MyCallbacks : public BLECharacteristicCallbacks {
       if (!otaRunning) {
         if (nLen!=8) return;
         uint8_t *p=pCharacteristic->getData();
-        if (p[0]!=0x48 || p[1]!=0x53 || p[2]!=0 || p[3]!=0)
-          Serial.println("Numero magico non corrisponde!");
+        if (p[0]!=0x53 || p[1]!=0x48
+         || p[2]!=0 || p[3]!=0)
+          Serial.printf("Numero magico non corrisponde! (%02X %02X %02X %02X)\n",p[0],p[1],p[2],p[3]);
         otaLength=p[4]+256*(p[5]+256*(p[6]+256*p[7]));
         otaProgress=0;
         Serial.printf("Lunghezza nuovo firmware : %d bytes\n",otaLength);
@@ -70,31 +76,37 @@ class MyCallbacks : public BLECharacteristicCallbacks {
         return;
       }
       else {
+        if (nLen==0) {
+          ESP.restart();
+          return;
+        }
         esp_err_t err=esp_ota_write(handleOta,pCharacteristic->getData(),nLen);
         otaProgress+=nLen;
         if (err!=ESP_OK) {
-          Serial.printf("Errore esp_ota_write %d\n",err);
+          Serial.printf("Errore esp_ota_write %s\n",esp_err_to_name(err));
           otaErr=err;
-          return;
         }
-        if (otaProgress==otaLength) {
-          esp_ota_end(handleOta);
-          const esp_partition_t *running=esp_ota_get_running_partition(),
-            *next = esp_ota_get_next_update_partition(running);
+        else {
+          Serial.printf("Ota progress: (%d) %d%%\n",nLen,(100*otaProgress)/otaLength);
 
-          esp_ota_set_boot_partition(next);
-          delay(1000);
-          ESP.restart();
+          if (otaProgress==otaLength) {
+            esp_ota_end(handleOta);
+            const esp_partition_t *running=esp_ota_get_running_partition(),
+              *next = esp_ota_get_next_update_partition(running);
+
+            esp_ota_set_boot_partition(next);
+            delay(1000);
+            ESP.restart();
+          }
         }
       }
     }
-    else if (pCharacteristic == pFreqChar) {
-      Serial.printf("Freq: %d\n", freq = *(uint32_t *)pCharacteristic->getData());
-      savePrefs();
-      initRadio();
-    }
-    else if (pCharacteristic == pTypeChar) {
-      Serial.printf("Type: %d\n", currentSonde = *(int *)pCharacteristic->getData());
+    else if (pCharacteristic == pTypeFreqChar) {
+      uint8_t *pVal=pCharacteristic->getData();
+      currentSonde=pVal[0];
+      freq=pVal[1]+256*(pVal[2]+256*(pVal[3]+256*pVal[4]));
+      
+      Serial.printf("TypeFreq: %d %d\n", currentSonde, freq);
       savePrefs();
       initRadio();
     }
@@ -142,16 +154,25 @@ void BLEInit() {
   createCharacteristic(pService, "Latitude", LAT_UUID, &pLatChar);
   createCharacteristic(pService, "Longitude", LON_UUID, &pLonChar);
   createCharacteristic(pService, "Altitude", ALT_UUID, &pAltChar);
-  createCharacteristic(pService, "Frame", FRAME_UUID, &pFrameChar);
+  createCharacteristic(pService, "Velocity", VEL_UUID, &pVelChar);
   createCharacteristic(pService, "Serial", SERIAL_UUID, &pSerialChar);
   createCharacteristic(pService, "Battery", BATT_UUID, &pBattChar);
   createCharacteristic(pService, "RSSI", RSSI_UUID, &pRSSIChar);
-  createCharacteristic(pService, "Frequency", FREQ_UUID, &pFreqChar, true);
-  createCharacteristic(pService, "Type", TYPE_UUID, &pTypeChar, true);
+  createCharacteristic(pService, "BurstKill", BK_UUID, &pBurstKillChar);
+  createCharacteristic(pService, "TypeFreq", TYPEFREQ_UUID, &pTypeFreqChar, true);
   createCharacteristic(pService, "Mute", MUTE_UUID, &pMuteChar, true);
-  pFreqChar->setValue(freq);
-  pTypeChar->setValue(currentSonde);
+  createCharacteristic(pService, "Version", VERSION_UUID, &pVersionChr);
+
+  uint8_t buffer[5];
+  buffer[0]=currentSonde;
+  buffer[1]=freq;
+  buffer[2]=freq>>8;
+  buffer[3]=freq>>16;
+  buffer[4]=freq>>24;
+  pTypeFreqChar->setValue(buffer,sizeof buffer);
+
   pMuteChar->setValue(mute);
+  pVersionChr->setValue(version);
   pService->start();
 
   pService = pServer->createService(BLEUUID(OTA_SERVICE_UUID), 90);
@@ -184,6 +205,12 @@ void BLENotifyAlt() {
   pAltChar->notify();
 }
 
+void BLENotifyVel() {
+  if (!connected) return;
+  pVelChar->setValue(vel);
+  pVelChar->notify();
+}
+
 void BLENotifyBatt() {
   if (!connected) return;
   pBattChar->setValue(batt);
@@ -202,10 +229,11 @@ void BLENotifySerial() {
   pSerialChar->notify();
 }
 
-void BLENotifyFrame() {
+void BLENotifyBurstKill() {
   if (!connected) return;
-  pFrameChar->setValue(frame);
-  pFrameChar->notify();
+  uint8_t buffer[]={ bkStatus, bkTime, bkTime>>8, bkTime>>16, bkTime>>24 };
+  pBurstKillChar->setValue(buffer,sizeof buffer);
+  pBurstKillChar->notify();
 }
 
 void BLELoop() {

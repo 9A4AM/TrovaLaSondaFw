@@ -150,12 +150,11 @@ bool loopRadio() {
     }
   }
   if (validPacket) {
-    Serial.println("NOTIFICHE");
     BLENotifyLat();
     BLENotifyLon();
     BLENotifyAlt();
-    BLENotifyFrame();
     BLENotifySerial();
+    BLENotifyBurstKill();
   }
   else {
       if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {

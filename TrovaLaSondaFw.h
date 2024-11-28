@@ -32,9 +32,10 @@ extern struct sx126x_long_pkt_rx_state pktRxState;
 extern int rssi, mute, batt;
 extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
-extern float lat, lng, alt;
+extern float lat, lng, alt, vel;
 extern char version[];
-
+extern uint8_t bkStatus;
+extern uint16_t bkTime;
 extern bool otaRunning;
 extern int otaLength, otaErr, otaProgress;
 

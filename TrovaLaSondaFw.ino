@@ -18,15 +18,17 @@
 #include "dfm.h"
 #include "Ble.h"
 
-const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BATTERY_SAMPLES = GPIO_NUM_20, BUZZER = GPIO_NUM_46;
+const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BUZZER = GPIO_NUM_46;
+const int BATTERY_SAMPLES = 20;
 uint32_t freq = 405950;
 int frame = 0, currentSonde = 0;
 int rssi, mute, batt;
 bool encrypted = false, connected = false;
 char serial[SERIAL_LENGTH + 1] = "";
-float lat = 0, lng = 0, alt = 0;
+float lat = 0, lng = 0, alt = 0, vel = 0;
 char version[]="0.6";
-
+uint8_t bkStatus;
+uint16_t bkTime;
 bool otaRunning = false;
 int otaLength=0, otaErr=0, otaProgress=0;
 
@@ -51,7 +53,12 @@ const uint8_t flipByte[] = {
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
   };
 // clang-format on
-Sonde *sondes[] = { &rs41, &m20, &m10, &m10, &dfm };
+Sonde unsupported={
+  .name="unsupp",
+  .bitRate=9600,
+  .processPacket=[](uint8_t*p)->bool {return false;}
+};
+Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm, &unsupported, &unsupported };
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
