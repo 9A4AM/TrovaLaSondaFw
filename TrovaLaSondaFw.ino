@@ -26,7 +26,7 @@ int rssi, mute, batt;
 bool encrypted = false, connected = false;
 char serial[SERIAL_LENGTH + 1] = "";
 float lat = 0, lng = 0, alt = 0, vel = 0;
-char version[]="0.6";
+char version[]="0.71";
 uint8_t bkStatus;
 uint16_t bkTime;
 bool otaRunning = false;

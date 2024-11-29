@@ -6,7 +6,7 @@
 #include "TrovaLaSondaFw.h"
 #include "rs41.h"
 
-//TODO: velocity
+//TODO: AUX
 
 static bool processPacket(uint8_t buf[]);
 
