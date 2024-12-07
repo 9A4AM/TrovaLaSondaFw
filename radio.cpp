@@ -30,8 +30,8 @@ void initRadio() {
   };
   sx126x_pkt_params_gfsk_t pktParams = {
     .preamble_len_in_bits = 0,
-    .preamble_detector = sondes[currentSonde]->preambleLength,//SX126X_GFSK_PREAMBLE_DETECTOR_MIN_32BITS,
-    .sync_word_len_in_bits = sondes[currentSonde]->syncWordLen,//64,
+    .preamble_detector = sondes[currentSonde]->preambleLength,
+    .sync_word_len_in_bits = sondes[currentSonde]->syncWordLen,
     .address_filtering = SX126X_GFSK_ADDRESS_FILTERING_DISABLE,
     .header_type = SX126X_GFSK_PKT_FIX_LEN,
     .pld_len_in_bytes = min(255,sondes[currentSonde]->packetLength), //255
@@ -92,6 +92,7 @@ void initRadio() {
 
 bool loopRadio() {
   static uint64_t tLastRead = 0, tLastPacket = 0, tLastRSSI = 0;
+  static int16_t actualPacketLength=0;
   bool validPacket=false;
   sx126x_status_t res;
   sx126x_pkt_status_gfsk_t pktStatus;
@@ -102,6 +103,7 @@ bool loopRadio() {
       //Serial.println("SYNC");
       tLastPacket = tLastRead = millis();
       nBytesRead = 0;
+      actualPacketLength = sondes[currentSonde]->packetLength;
       res = sx126x_clear_irq_status(NULL, SX126X_IRQ_SYNC_WORD_VALID);
     }
     if (tLastRead != 0 && millis() - tLastRead > 1000) {
@@ -119,19 +121,20 @@ bool loopRadio() {
         validPacket=false;
       }
       //Serial.printf("READ %d\n", read);
+      if (nBytesRead<sondes[currentSonde]->partialPacketLength && nBytesRead+read>=sondes[currentSonde]->partialPacketLength)
+        actualPacketLength=sondes[currentSonde]->processPartialPacket(buf);
       nBytesRead += read;
-      if (sizeof buf - nBytesRead <= 255)
+      if (actualPacketLength - nBytesRead <= 255)
         res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, sizeof buf - nBytesRead);
       
-      if (nBytesRead == sizeof buf) {
+      if (nBytesRead == actualPacketLength) {
         sx126x_long_pkt_rx_complete(NULL);
         sx126x_long_pkt_set_rx_with_timeout_in_rtc_step(NULL, &pktRxState, SX126X_RX_CONTINUOUS);
         tLastRead = 0;
         nBytesRead = 0;
         
         //dump(buf, sizeof buf);
-        sondes[currentSonde]->processPacket(buf);
-        validPacket=true;
+        validPacket = sondes[currentSonde]->processPacket(buf);
       }
     } 
   }
@@ -149,12 +152,14 @@ bool loopRadio() {
       validPacket = sondes[currentSonde]->processPacket(buf);
     }
   }
+
   if (validPacket) {
     BLENotifyLat();
     BLENotifyLon();
     BLENotifyAlt();
     BLENotifySerial();
     BLENotifyBurstKill();
+    BLENotifyVel();
   }
   else {
       if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {

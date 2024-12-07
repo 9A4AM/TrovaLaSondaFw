@@ -13,10 +13,12 @@ Sonde m20={
   .frequencyDeviation= 12500,//?
   .bandWidth=SX126X_GFSK_BW_14600,
   .packetLength=M20_PACKET_LENGTH,
+  .partialPacketLength = 0,
   .preambleLength=SX126X_GFSK_PREAMBLE_DETECTOR_OFF,
   .syncWordLen= 48,
   .flipBytes=false,
   .syncWord={ 0x66, 0x66, 0x66, 0x66, 0xB3, 0x66 },
+  .processPartialPacket=NULL,
   .processPacket=processPacket
 };
 

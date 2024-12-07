@@ -1,0 +1,16 @@
+{
+  "name": "TrovaLaSondaFw",
+  "version": "0.71",
+  "new_install_prompt_erase": false,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "https://www.ydiaeresis.eu/public/TrovaLaSondaFw.ino.merged.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

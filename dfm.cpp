@@ -11,10 +11,12 @@ Sonde dfm = {
   .frequencyDeviation = 10400,  //?
   .bandWidth = SX126X_GFSK_BW_11700,
   .packetLength = DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1),  //HACK!
+  .partialPacketLength = 0,
   .preambleLength = SX126X_GFSK_PREAMBLE_DETECTOR_OFF,
   .syncWordLen = 16,
   .flipBytes = false,
   .syncWord = { /*0x9A, 0x99,*/ 0x5A, 0x55 },
+  .processPartialPacket=NULL,
   .processPacket = processPacket
 };
 

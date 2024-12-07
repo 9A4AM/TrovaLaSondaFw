@@ -5,21 +5,24 @@
 #include "sx126x_hal.h"
 #include "sx126x_long_pkt.h"
 
-#define PACKET_LENGTH 312
+#define PACKET_LENGTH RS41AUX_PACKET_LENGTH //longest packet length
 #define SERIAL_LENGTH 12
 #define SYNCWORD_SIZE  8
 
 typedef struct Sonde_s {
   const char *name;
-  int bitRate;
-  int frequencyDeviation;
+  int bitRate,
+    frequencyDeviation;
   sx126x_gfsk_bw_t bandWidth;
-  int packetLength;
+  int packetLength, 
+    partialPacketLength; //Minimum # of bytes to be read to determine actual packet length
   sx126x_gfsk_preamble_detector_t preambleLength;
   int syncWordLen;
   bool flipBytes;
   uint8_t syncWord[SYNCWORD_SIZE];
   
+  int (*processPartialPacket)(uint8_t buf[]); //To be called after partialPacketLength bytes 
+                                              //have been read to determine the actual packet length
   bool (*processPacket)(uint8_t buf[]);
 } Sonde;
 
@@ -32,7 +35,8 @@ extern struct sx126x_long_pkt_rx_state pktRxState;
 extern int rssi, mute, batt;
 extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
-extern float lat, lng, alt, vel;
+extern double lat, lng;
+extern float alt, vel;
 extern char version[];
 extern uint8_t bkStatus;
 extern uint16_t bkTime;
