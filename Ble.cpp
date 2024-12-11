@@ -8,7 +8,6 @@
 #include <esp_ota_ops.h>
 #include <arduino_base64.hpp>
 #include "Ble.h"
-#include "sx126x.h"
 #include "TrovaLaSondaFw.h"
 #include "radio.h"
 
@@ -31,7 +30,6 @@
 BLEServer *pServer = NULL;
 BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pVelChar, *pSerialChar, *pBurstKillChar,
   *pBattChar, *pRSSIChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChr, *pOtaRxChr;
-BLE2901 *descriptor_2901 = NULL;
 bool wasConnected = false;
 esp_ota_handle_t handleOta;
 esp_bd_addr_t connected_addr;
@@ -134,7 +132,7 @@ void createCharacteristic(BLEService *pService, const char *desc, const char *uu
   // Creates BLE Descriptor 0x2902: Client Characteristic Configuration Descriptor (CCCD)
   (*ppChar)->addDescriptor(new BLE2902());
   // Adds also the Characteristic User Description - 0x2901 descriptor
-  descriptor_2901 = new BLE2901();
+  BLE2901 *descriptor_2901 = new BLE2901();
   descriptor_2901->setDescription(desc);
   if (!writable)
     descriptor_2901->setAccessPermissions(ESP_GATT_PERM_READ);  // enforce read only - default is Read|Write
@@ -192,25 +190,25 @@ void BLEInit() {
 }
 
 void BLENotifyLat() {
-  if (!connected || otaRunning) return;
+  if (!connected || otaRunning || isnan(lat)) return;
   pLatChar->setValue(lat);
   pLatChar->notify();
 }
 
 void BLENotifyLon() {
-  if (!connected || otaRunning) return;
+  if (!connected || otaRunning || isnan(lng)) return;
   pLonChar->setValue(lng);
   pLonChar->notify();
 }
 
 void BLENotifyAlt() {
-  if (!connected || otaRunning) return;
+  if (!connected || otaRunning || isnan(alt)) return;
   pAltChar->setValue(alt);
   pAltChar->notify();
 }
 
 void BLENotifyVel() {
-  if (!connected || otaRunning) return;
+  if (!connected || otaRunning || isnan(vel)) return;
   pVelChar->setValue(vel);
   pVelChar->notify();
 }
@@ -228,14 +226,14 @@ void BLENotifyRSSI() {
 }
 
 void BLENotifySerial() {
-  if (!connected || otaRunning) return;
+  if (!connected || otaRunning || *serial!='\0') return;
   pSerialChar->setValue(serial);
   pSerialChar->notify();
 }
 
 void BLENotifyBurstKill() {
-  if (!connected || otaRunning) return;
-  uint8_t buffer[] = { bkStatus, bkTime, bkTime >> 8, bkTime >> 16, bkTime >> 24 };
+  if (!connected || otaRunning || bkTime==0xFFFFU) return;
+  uint8_t buffer[] = { bkStatus, bkTime, bkTime >> 8 };
   pBurstKillChar->setValue(buffer, sizeof buffer);
   pBurstKillChar->notify();
 }

@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <math.h>
 #include <CRC.h>
 #include <RS-FEC.h>
 #include "TrovaLaSondaFw.h"
@@ -13,10 +14,10 @@ Sonde rs41={
   .name="RS41",
   .bitRate=4800,
   .frequencyDeviation= 3600,//?
-  .bandWidth=SX126X_GFSK_BW_9700,
+  .bandwidthHz=9700,
   .packetLength=RS41_PACKET_LENGTH,
   .partialPacketLength = 49,
-  .preambleLength=SX126X_GFSK_PREAMBLE_DETECTOR_MIN_32BITS,
+  .preambleLengthBytes=4,
   .syncWordLen=64,
   .flipBytes=true,
   .syncWord={ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8 },
@@ -75,37 +76,6 @@ static bool correctErrors(uint8_t data[],int length) {
 
   return true;
 }
-
-//https://gis.stackexchange.com/questions/265909/converting-from-ecef-to-geodetic-coordinates
-/*static void ecef2wgs84(double x, double y, double z, double& lat, double& lng, float& height) {
-  // WGS84 constants
-  double a = 6378137.0,
-        f = 1.0 / 298.257223563;
-  // derived constants
-  double b = a - f * a,
-        e = sqrt(pow(a, 2.0) - pow(b, 2.0)) / a,
-        clambda = atan2(y, x),
-        p = sqrt(pow(x, 2.0) + pow(y, 2)),
-        h_old = 0.0;
-  //first guess with h=0 meters
-  double theta = atan2(z, p * (1.0 - pow(e, 2.0))),
-        cs = cos(theta),
-        sn = sin(theta),
-        N = pow(a, 2.0) / sqrt(pow(a * cs, 2.0) + pow(b * sn, 2.0)),
-        h = p / cs - N;
-  int nMaxLoops = 500;
-  while (abs(h - h_old) > 1.0e-9 && nMaxLoops-- > 0) {
-    h_old = h;
-    theta = atan2(z, p * (1.0 - pow(e, 2.0) * N / (N + h)));
-    cs = cos(theta);
-    sn = sin(theta);
-    N = pow(a, 2.0) / sqrt(pow(a * cs, 2.0) + pow(b * sn, 2.0));
-    h = p / cs - N;
-  }
-  lng = clambda / M_PI * 180;
-  lat = theta / M_PI * 180;
-  height = h;
-}*/
 
 //Accurate Conversion of Earth-Fixed Earth-Centered
 //Coordinates to Geodetic Coordinates
@@ -198,18 +168,21 @@ void ecef2wgs84(double x, double y, double z,double &lat, double &lon,float &alt
     alt = altitude;
 }
 
-
 static int processPartialPacket(uint8_t buf[]) {
   return actualPacketLength = buf[48]==0xF0 ? RS41AUX_PACKET_LENGTH : RS41_PACKET_LENGTH;
 }
 
 static bool processPacket(uint8_t buf[]) {
   //TODO: testare AUX
-  double x, y, z, vx, vy;
+  double x, y, z, vx, vy, vz, vn,ve, vu;
   int svs, n = 48 + 1;
 
   frame = 0;
   encrypted = false;
+  bkStatus = 0;
+  bkTime = 0xFFFFU;
+  lat = lng = NAN;
+  alt = NAN;
 
   for (int i = 0; i < actualPacketLength; i++)
     buf[i] = whitening[i % sizeof whitening] ^ flipByte[buf[i]];
@@ -237,8 +210,8 @@ static bool processPacket(uint8_t buf[]) {
               bkStatus=buf[2+n+0x18+0x0B];
               Serial.printf("BkStatus: %d\n",bkStatus);
               break;
-            case 0x31:
-              bkTime=buf[2+n+0x18+6]+256*buf[2+n+0x18+7];
+            case 0x32:
+              bkTime=buf[2+n+0x18]+256*buf[2+n+0x18+1];
               Serial.printf("BkTime: %d\n",bkTime);
               break;
           }
@@ -246,16 +219,19 @@ static bool processPacket(uint8_t buf[]) {
         case 0x7B:  //GPSPOS
           svs = buf[n+0x14];
           if (svs>=3) {
-            x = (buf[n + 2] + 256 * (buf[n + 3] + 256 * (buf[n + 4] + 256 * buf[n + 5]))) / 100.0;
-            y = (buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9]))) / 100.0;
-            z = (buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13]))) / 100.0;
+            x = (int32_t)(buf[n + 2] + 256 * (buf[n + 3] + 256 * (buf[n + 4] + 256 * buf[n + 5]))) / 100.0;
+            y = (int32_t)(buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9]))) / 100.0;
+            z = (int32_t)(buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13]))) / 100.0;
             ecef2wgs84(x, y, z, lat, lng, alt);
 
-            vx = (buf[n + 2 + 0x0C] + 256 * buf[n + 2 + 0x0D])/100.0;
-            vy = (buf[n + 2 + 0x0E] + 256 * buf[n + 2 + 0x0F])/100.0;
-            vel  = sqrt(pow(vx,2)+pow(vy,2));
-
-            Serial.printf(" lat:%f lon:%f h:%f svs:%d vel:%fm/s", lat, lng, alt, svs, vel);
+            vx = (int16_t)(buf[n + 2 + 0x0C] + 256 * buf[n + 2 + 0x0D])/100.0;
+            vy = (int16_t)(buf[n + 2 + 0x0E] + 256 * buf[n + 2 + 0x0F])/100.0;
+            vz = (int16_t)(buf[n + 2 + 0x10] + 256 * buf[n + 2 + 0x11])/100.0;
+            vn = (-(vx*sin(lat)*cos(lng))-vy*sin(lat)*sin(lng))+vz*cos(lat);
+            ve = -(vx*sin(lng))+vy*cos(lng);
+            vu = vx*cos(lat)*cos(lng)+vy*cos(lat)*sin(lng)+vz*sin(lat);
+            vel = sqrt(pow(vn,2)+pow(ve,2));
+            Serial.printf(" lat:%f lon:%f h:%f svs:%d vel:%fm/s vup:%fm/s", lat, lng, alt, svs, vel, vu);
           }
           break;
         case 0x80:  //CRYPTO

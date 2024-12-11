@@ -26,11 +26,11 @@ void initRadio() {
     .br_in_bps = sondes[currentSonde]->bitRate,//4800,
     .fdev_in_hz = sondes[currentSonde]->frequencyDeviation,//3600,                          //?
     .pulse_shape = SX126X_GFSK_PULSE_SHAPE_OFF,  //?
-    .bw_dsb_param = sondes[currentSonde]->bandWidth,//SX126X_GFSK_BW_9700          //?
+    .bw_dsb_param = getBandwidth(sondes[currentSonde]->bandwidthHz),//SX126X_GFSK_BW_9700          //?
   };
   sx126x_pkt_params_gfsk_t pktParams = {
     .preamble_len_in_bits = 0,
-    .preamble_detector = sondes[currentSonde]->preambleLength,
+    .preamble_detector = getPreambleLength(sondes[currentSonde]->preambleLengthBytes),
     .sync_word_len_in_bits = sondes[currentSonde]->syncWordLen,
     .address_filtering = SX126X_GFSK_ADDRESS_FILTERING_DISABLE,
     .header_type = SX126X_GFSK_PKT_FIX_LEN,

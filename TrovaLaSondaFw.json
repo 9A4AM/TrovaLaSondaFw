@@ -6,8 +6,8 @@
       "file": "rdzTrovaLaSonda.ino.bin"
     },
     "TrovaLaSondaFw": {
-      "version": "0.8",
-      "info": "fixes minor bugs",
+      "version": "1.2",
+      "info": "Many bug fixes, burstkill now working",
       "file": "TrovaLaSondaFw.ino.bin"
     }
   }

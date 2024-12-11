@@ -18,6 +18,7 @@
 #include "dfm.h"
 #include "Ble.h"
 
+char version[]="1.3";
 const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BUZZER = GPIO_NUM_46;
 const int BATTERY_SAMPLES = 20;
 uint32_t freq = 405950;
@@ -27,7 +28,6 @@ bool encrypted = false, connected = false;
 char serial[SERIAL_LENGTH + 1] = "";
 double lat = 0, lng = 0;
 float alt = 0, vel = 0;
-char version[]="1.0";
 uint8_t bkStatus;
 uint16_t bkTime;
 bool otaRunning = false;
@@ -63,6 +63,39 @@ Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm, &unsupported, &unsupp
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
+
+sx126x_gfsk_preamble_detector_t getPreambleLength(unsigned lengthInBytes) {
+  sx126x_gfsk_preamble_detector_t tab[]={
+    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_8BITS,
+    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_16BITS,
+    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_24BITS,
+    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_32BITS
+  };
+  if (lengthInBytes<=0 || lengthInBytes-1>sizeof tab/sizeof(*tab)) 
+    return SX126X_GFSK_PREAMBLE_DETECTOR_OFF;
+  return tab[lengthInBytes-1];
+}
+
+sx126x_gfsk_bw_t getBandwidth(unsigned bandwidth) {
+// clang-format off
+  sx126x_gfsk_bw_t tab[] = {
+    SX126X_GFSK_BW_4800,SX126X_GFSK_BW_5800,SX126X_GFSK_BW_7300,
+    SX126X_GFSK_BW_9700,SX126X_GFSK_BW_11700,SX126X_GFSK_BW_14600,
+    SX126X_GFSK_BW_19500,SX126X_GFSK_BW_23400,SX126X_GFSK_BW_29300,
+    SX126X_GFSK_BW_39000,SX126X_GFSK_BW_46900,SX126X_GFSK_BW_58600,
+    SX126X_GFSK_BW_78200,SX126X_GFSK_BW_93800,SX126X_GFSK_BW_117300,
+    SX126X_GFSK_BW_156200,SX126X_GFSK_BW_187200,SX126X_GFSK_BW_234300,
+    SX126X_GFSK_BW_312000,SX126X_GFSK_BW_373600,SX126X_GFSK_BW_467000,
+  };
+  unsigned  limits[] = {
+    4800,5800,7300,9700,11700,14600,19500,23400,29300,39000,46900,
+    58600,78200,93800,117300,156200,187200,234300,312000,373600,467000,
+  };
+// clang-format on
+  for (int i=0;i<sizeof limits/sizeof *limits-1;i++)
+    if (bandwidth<(limits[i]+limits[i+1])/2) return tab[i];
+  return SX126X_GFSK_BW_467000;
+}
 
 void dump(uint8_t buf[], int size) {
   for (int i = 0; i < size; i++)

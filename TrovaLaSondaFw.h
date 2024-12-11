@@ -13,10 +13,10 @@ typedef struct Sonde_s {
   const char *name;
   int bitRate,
     frequencyDeviation;
-  sx126x_gfsk_bw_t bandWidth;
+  unsigned bandwidthHz;
   int packetLength, 
     partialPacketLength; //Minimum # of bytes to be read to determine actual packet length
-  sx126x_gfsk_preamble_detector_t preambleLength;
+  int preambleLengthBytes;
   int syncWordLen;
   bool flipBytes;
   uint8_t syncWord[SYNCWORD_SIZE];
@@ -43,6 +43,8 @@ extern uint16_t bkTime;
 extern bool otaRunning;
 extern int otaLength, otaErr, otaProgress;
 
+sx126x_gfsk_preamble_detector_t getPreambleLength(unsigned lengthInBytes);
+sx126x_gfsk_bw_t getBandwidth(unsigned bandwidth);
 void dump(uint8_t buf[], int size);
 void savePrefs();
 void bip(int duration, int freq);
