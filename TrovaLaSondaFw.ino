@@ -2,9 +2,6 @@
 //!arduino-cli upload -p COM3 --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
 #include <SPI.h>
 #include <Wire.h>
-#ifdef SX126X
-#include <driver/board-config.h>
-#endif
 #include <Ticker.h>
 #include <MD_KeySwitch.h>
 #include <Preferences.h>

@@ -10,4 +10,4 @@ Requisites
 * Adafruit GFX Library
 * Adafruit BusIO
 * Adafruit_SSD1306
-* Heltec_ESP32_Dev-Boards
+* Heltec_ESP32_Dev-Boards (?)

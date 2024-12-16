@@ -1,15 +1,11 @@
-#ifdef WIFI_LoRa_32_V3
-#include <HT_SSD1306Wire.h>
-#else
 #include <SSD1306.h>
-#endif
 #include "TrovaLaSondaFw.h"
 #include "disp.h"
 
 const int BATT_W = 14, BATT_H = 30, BATT_X = 113, BATT_Y = 28,
           BATT_CORNER_RADIUS = 4,
           BATT_PLUS_W = 6, BATT_PLUS_H = 3, BT_X = 50, BT_Y = 0,
-          SPEAKER_X = 94, SPEAKER_Y = 44;
+          SPEAKER_X = 94, SPEAKER_Y = 44, DT = 5;
 const int logo_width = 32, logo_height = 32;
 static uint8_t logo_bits[] = {
   0x00, 0xFF, 0x01, 0x00, 0xC0, 0xFF, 0x07, 0x00, 0xE0, 0xFF, 0x1F, 0x00,
@@ -72,13 +68,20 @@ unsigned char chute_bits[] = {
 };
 unsigned int chute_len = 128;
 
-#ifdef WIFI_LoRa_32_V3
-static SSD1306Wire display(0x3c, 700000, SDA_OLED, SCL_OLED, GEOMETRY_128_64, RST_OLED);
-#else
 static SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED);
-#endif
 
-#define DT 12
+void showLogoText(int offset) {
+  display.setFont(ArialMT_Plain_16);
+  display.setTextAlignment(TEXT_ALIGN_CENTER);
+  display.drawString(65, 32-offset, "TrovaLaSonda");
+  display.drawString(64, 32-offset, "TrovaLaSonda");
+  display.drawString(64, 47-offset, version);
+  display.drawString(65, 47-offset, version);
+}
+
+void showLogoText() {
+  showLogoText(0);
+}
 
 void initDisplay() {
   int i;
@@ -92,13 +95,12 @@ void initDisplay() {
   digitalWrite(RST_OLED, HIGH);
 #endif
   display.init();
-#ifdef ARDUINO_TTGO_LoRa32_V1
   display.flipScreenVertically();
-#endif
   display.invertDisplay();
   for (i = 0; i < 32; i++) {
     display.clear();
     display.drawXbm((128 - chute_width) / 2, i - chute_height, chute_width, chute_height, chute_bits);
+    showLogoText();
     display.display();
     delay(DT);
   }
@@ -106,18 +108,14 @@ void initDisplay() {
     display.clear();
     display.drawXbm(64 - i + (128 - hand_width) / 2, 1, hand_width, hand_height, hand_bits);
     display.drawXbm((128 - chute_width) / 2, 1, chute_width, chute_height, chute_bits);
+    showLogoText();
     display.display();
     delay(DT);
   }
   for (i = 0; i < 64 + logo_width / 2; i++) {
     display.clear();
     display.drawXbm(i + (128 - logo_width) / 2, 1, logo_width, logo_height, logo_bits);
-    display.setFont(ArialMT_Plain_16);
-    display.setTextAlignment(TEXT_ALIGN_CENTER);
-    display.drawString(65, 32, "TrovaLaSonda");
-    display.drawString(64, 32, "TrovaLaSonda");
-    display.drawString(64, 47, version);
-    display.drawString(65, 47, version);
+    showLogoText();
     display.display();
     delay(DT);
   }
@@ -125,14 +123,11 @@ void initDisplay() {
   for (i = 0; i < 16; i++) {
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_CENTER);
-    display.drawString(65, -i+32, "TrovaLaSonda");
-    display.drawString(64, -i+32, "TrovaLaSonda");
-    display.drawString(64, -i+47, version);
-    display.drawString(65, -i+47, version);
+    showLogoText(i);
     display.display();
     delay(DT);
   }
-  vTaskDelay(500);
+  delay(500);
 }
 
 void displayOTA() {

@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include "TrovaLaSondaFw.h"
 #ifdef SX126X
-#include <driver/board-config.h>
 #include "sx126x_hal.h"
 
 SPISettings spiSettings = SPISettings(4E6L, MSBFIRST, SPI_MODE0);

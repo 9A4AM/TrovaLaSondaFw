@@ -1,8 +1,5 @@
 #include <arduino.h>
 #include <SPI.h>
-#ifdef SX216X
-#include <driver/board-config.h>
-#endif
 #include "TrovaLaSondaFw.h"
 #include "radio.h"
 #include "rs41.h"
@@ -266,20 +263,21 @@ bool loopRadio() {
         nBytesRead = 0;
         validPacket = false;
       }
-      //Serial.printf("READ %d\n", read);
+      //Serial.printf("  READ %d\n", read);
       if (nBytesRead < sondes[currentSonde]->partialPacketLength && nBytesRead + read >= sondes[currentSonde]->partialPacketLength)
         actualPacketLength = sondes[currentSonde]->processPartialPacket(buf);
       nBytesRead += read;
       if (actualPacketLength - nBytesRead <= 255)
-        res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, sizeof buf - nBytesRead);
+        res = sx126x_long_pkt_rx_prepare_for_last(NULL, &pktRxState, actualPacketLength - nBytesRead);
 
       if (nBytesRead == actualPacketLength) {
+        Serial.printf("fine\n");
         sx126x_long_pkt_rx_complete(NULL);
         sx126x_long_pkt_set_rx_with_timeout_in_rtc_step(NULL, &pktRxState, SX126X_RX_CONTINUOUS);
         tLastRead = 0;
         nBytesRead = 0;
 
-        //dump(buf, sizeof buf);
+        //dump(buf, actualPacketLength);
         validPacket = sondes[currentSonde]->processPacket(buf);
       }
     }
@@ -302,6 +300,7 @@ bool loopRadio() {
 #ifdef SX1278
   static uint16_t nCurByte=0;
   if (digitalRead(RADIO_DIO_0) == HIGH) {  //DIO0: payload ready
+  Serial.println("PKT");
     while (nCurByte < sondes[currentSonde]->packetLength) {
       buf[nCurByte] = readRegister(RegFIFO);
       nCurByte++;
@@ -310,7 +309,14 @@ bool loopRadio() {
     validPacket = sondes[currentSonde]->processPacket(buf);
     nCurByte = 0;
   }
-  uint8_t irq2=readRegister(RegIrqFlags2); //TODO: only if sync received
+  static uint8_t oldIrq1,oldIrq2;
+  uint8_t irq1=readRegister(RegIrqFlags1),
+    irq2=readRegister(RegIrqFlags2); //TODO: only if sync received?
+  if (irq1!=oldIrq1 || irq2!=oldIrq2) {
+    oldIrq1=irq1;
+    oldIrq2=irq2;
+    Serial.printf("irq1: %02X irq2: %02X\n",irq1,irq2);
+  }
   if ((irq2 & 0x20)!=0) {  //fifo level
     if (nCurByte == 0)
       rssi = readRegister(RegRssiValue);
@@ -333,7 +339,7 @@ bool loopRadio() {
       sx126x_get_rssi_inst(NULL, &t);
       rssi = t;
 #else
-      rssi = readRegister(RegRssiValue); //TODO: see section 5.5.5 of the datasheet
+      rssi = -readRegister(RegRssiValue)/2;
 #endif
       //Serial.printf("rssi: %d\n", rssi);
       tLastRSSI = millis();
