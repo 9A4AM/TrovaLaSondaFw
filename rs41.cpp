@@ -5,6 +5,7 @@
 #include <CRC.h>
 #include <RS-FEC.h>
 #include "TrovaLaSondaFw.h"
+#include "radio.h"
 #include "rs41.h"
 
 static bool processPacket(uint8_t buf[]);
@@ -13,14 +14,16 @@ static int processPartialPacket(uint8_t buf[]);
 Sonde rs41={
   .name="RS41",
   .bitRate=4800,
+  .afcBandWidth= 12500,
   .frequencyDeviation= 3600,//?
   .bandwidthHz=9700,
   .packetLength=RS41_PACKET_LENGTH,
   .partialPacketLength = 49,
-  .preambleLengthBytes=4,
+  .preambleLengthBytes=3,
   .syncWordLen=64,
   .flipBytes=true,
   .syncWord={ 0x10, 0xB6, 0xCA, 0x11, 0x22, 0x96, 0x12, 0xF8 },
+  //.syncWord={ 0x08,0x6D,0x53,0x88,0x44,0x69,0x48,0x1F },
   .processPartialPacket=processPartialPacket,
   .processPacket=processPacket
 };

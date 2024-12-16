@@ -2,26 +2,26 @@
 //!arduino-cli upload -p COM3 --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
 #include <SPI.h>
 #include <Wire.h>
-#include <HT_SSD1306Wire.h>
+#ifdef SX126X
 #include <driver/board-config.h>
+#endif
 #include <Ticker.h>
 #include <MD_KeySwitch.h>
 #include <Preferences.h>
 #include <esp_partition.h>
 #include <esp_ota_ops.h>
 #include "disp.h"
-#include "radio.h"
 #include "TrovaLaSondaFw.h"
+#include "radio.h"
 #include "rs41.h"
 #include "m10.h"
 #include "m20.h"
 #include "dfm.h"
 #include "Ble.h"
 
-char version[]="1.3";
-const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BUZZER = GPIO_NUM_46;
+char version[]="1.4";
 const int BATTERY_SAMPLES = 20;
-uint32_t freq = 405950;
+uint32_t freq = 403000;
 int frame = 0, currentSonde = 0;
 int rssi, mute, batt;
 bool encrypted = false, connected = false;
@@ -33,7 +33,6 @@ uint16_t bkTime;
 bool otaRunning = false;
 int otaLength=0, otaErr=0, otaProgress=0;
 
-struct sx126x_long_pkt_rx_state pktRxState;
 // clang-format off
 const uint8_t flipByte[] = {
     0x00, 0x80, 0x40, 0xC0, 0x20, 0xA0, 0x60, 0xE0, 0x10, 0x90, 0x50, 0xD0, 0x30, 0xB0, 0x70, 0xF0,
@@ -64,39 +63,6 @@ Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
 
-sx126x_gfsk_preamble_detector_t getPreambleLength(unsigned lengthInBytes) {
-  sx126x_gfsk_preamble_detector_t tab[]={
-    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_8BITS,
-    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_16BITS,
-    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_24BITS,
-    SX126X_GFSK_PREAMBLE_DETECTOR_MIN_32BITS
-  };
-  if (lengthInBytes<=0 || lengthInBytes-1>sizeof tab/sizeof(*tab)) 
-    return SX126X_GFSK_PREAMBLE_DETECTOR_OFF;
-  return tab[lengthInBytes-1];
-}
-
-sx126x_gfsk_bw_t getBandwidth(unsigned bandwidth) {
-// clang-format off
-  sx126x_gfsk_bw_t tab[] = {
-    SX126X_GFSK_BW_4800,SX126X_GFSK_BW_5800,SX126X_GFSK_BW_7300,
-    SX126X_GFSK_BW_9700,SX126X_GFSK_BW_11700,SX126X_GFSK_BW_14600,
-    SX126X_GFSK_BW_19500,SX126X_GFSK_BW_23400,SX126X_GFSK_BW_29300,
-    SX126X_GFSK_BW_39000,SX126X_GFSK_BW_46900,SX126X_GFSK_BW_58600,
-    SX126X_GFSK_BW_78200,SX126X_GFSK_BW_93800,SX126X_GFSK_BW_117300,
-    SX126X_GFSK_BW_156200,SX126X_GFSK_BW_187200,SX126X_GFSK_BW_234300,
-    SX126X_GFSK_BW_312000,SX126X_GFSK_BW_373600,SX126X_GFSK_BW_467000,
-  };
-  unsigned  limits[] = {
-    4800,5800,7300,9700,11700,14600,19500,23400,29300,39000,46900,
-    58600,78200,93800,117300,156200,187200,234300,312000,373600,467000,
-  };
-// clang-format on
-  for (int i=0;i<sizeof limits/sizeof *limits-1;i++)
-    if (bandwidth<(limits[i]+limits[i+1])/2) return tab[i];
-  return SX126X_GFSK_BW_467000;
-}
-
 void dump(uint8_t buf[], int size) {
   for (int i = 0; i < size; i++)
     Serial.printf("0x%02X,%c", buf[i], i % 16 == 15 ? '\n' : ' ');
@@ -121,19 +87,23 @@ void flash(int duration) {
 
 void VBattInit() {
   pinMode(VBAT_PIN, INPUT);
-  pinMode(ADC_CTRL_PIN, OUTPUT);
+  if (ADC_CTRL_PIN!=GPIO_NUM_NC)
+    pinMode(ADC_CTRL_PIN, OUTPUT);
 }
 
 int getBattLevel() {
-  digitalWrite(ADC_CTRL_PIN, LOW);
-  delay(10);
-
+  if (ADC_CTRL_PIN!=GPIO_NUM_NC) {
+    digitalWrite(ADC_CTRL_PIN, LOW);
+    delay(10);
+  }
   uint32_t raw = 0;
   for (int i = 0; i < BATTERY_SAMPLES; i++)
     raw += analogRead(VBAT_PIN);
 
   raw /= BATTERY_SAMPLES;
-  digitalWrite(ADC_CTRL_PIN, HIGH);
+  
+  if (ADC_CTRL_PIN!=GPIO_NUM_NC)
+    digitalWrite(ADC_CTRL_PIN, HIGH);
   return constrain(map(raw, 670, 950, 0, 100), 0, 100);
 }
 
@@ -156,11 +126,13 @@ void setup() {
 
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(BUZZER, OUTPUT);
-  pinMode(BUTTON, INPUT);
   VBattInit();
-  button.enableRepeat(false);
-  button.enableLongPress(true);
-  button.setLongPressTime(1000);
+  if (BUTTON!=GPIO_NUM_NC) {
+    pinMode(BUTTON, INPUT);
+    button.enableRepeat(false);
+    button.enableLongPress(true);
+    button.setLongPressTime(1000);
+  }
   readPrefs();
   bip(200, 440);
   initDisplay();
@@ -200,18 +172,19 @@ void loop() {
       BLENotifyRSSI();
     }
   }
-  switch (button.read()) {
-    case MD_KeySwitch::KS_PRESS:
-      break;
-    case MD_KeySwitch::KS_LONGPRESS:
-      sx126x_set_sleep(NULL, SX126X_SLEEP_CFG_COLD_START);
-      esp_sleep_enable_ext0_wakeup(BUTTON, 0);
-      displayOff();
+  if (BUTTON!=GPIO_NUM_NC)
+    switch (button.read()) {
+      case MD_KeySwitch::KS_PRESS:
+        break;
+      case MD_KeySwitch::KS_LONGPRESS:
+        sleepRadio();
+        esp_sleep_enable_ext0_wakeup(BUTTON, 0);
+        displayOff();
 
-      while (digitalRead(BUTTON) == LOW)
-        ;
-      delay(100);
-      esp_deep_sleep_start();
-      break;
-  }
+        while (digitalRead(BUTTON) == LOW)
+          ;
+        delay(100);
+        esp_deep_sleep_start();
+        break;
+    }
 }

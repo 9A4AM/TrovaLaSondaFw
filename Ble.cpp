@@ -226,7 +226,7 @@ void BLENotifyRSSI() {
 }
 
 void BLENotifySerial() {
-  if (!connected || otaRunning || *serial!='\0') return;
+  if (!connected || otaRunning || *serial=='\0') return;
   pSerialChar->setValue(serial);
   pSerialChar->notify();
 }

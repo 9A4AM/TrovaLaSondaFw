@@ -1,5 +1,6 @@
 #include <arduino.h>
 #include "TrovaLaSondaFw.h"
+#include "radio.h"
 #include "dfm.h"
 #include "m10.h"
 
@@ -8,6 +9,7 @@ static bool processPacket(uint8_t buf[]);
 Sonde dfm = {
   .name = "DFM",
   .bitRate = 2500,
+  .afcBandWidth= 50000,
   .frequencyDeviation = 10400,  //?
   .bandwidthHz = 11700,
   .packetLength = DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1),  //HACK!

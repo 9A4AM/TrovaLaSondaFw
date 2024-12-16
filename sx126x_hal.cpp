@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <SPI.h>
+#ifdef SX126X
 #include <driver/board-config.h>
 #include "sx126x_hal.h"
 
@@ -52,3 +53,4 @@ sx126x_hal_status_t sx126x_hal_wakeup(const void* context) {
   digitalWrite(RADIO_NSS, HIGH);
   return SX126X_HAL_STATUS_OK;
 }
+#endif

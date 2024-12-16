@@ -1,9 +1,25 @@
-#ifndef __RS41_HELTECV3_H__
-#define __RS41_HELTECV3_H__
-#include "sx126x.h"
-#include "sx126x_regs.h"
-#include "sx126x_hal.h"
-#include "sx126x_long_pkt.h"
+#ifndef __TROVALASONDAFW_H__
+#define __TROVALASONDAFW_H__
+
+#include <stdint.h>
+#include <driver/gpio.h>
+
+#ifdef WIFI_LoRa_32_V3
+#define SX126X
+const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BUZZER = GPIO_NUM_46;
+#else
+#ifdef ARDUINO_TTGO_LoRa32_V1
+#define SDA_OLED 21
+#define SCL_OLED 22
+#define RST_OLED 16
+
+#define SX1278
+const gpio_num_t BUTTON = GPIO_NUM_NC, VBAT_PIN = GPIO_NUM_35, ADC_CTRL_PIN = GPIO_NUM_NC, BUZZER = GPIO_NUM_4, 
+  Vext=GPIO_NUM_NC, RADIO_NSS=(gpio_num_t)SS, RADIO_RESET=GPIO_NUM_23, LORA_CLK=(gpio_num_t)SCK, RADIO_DIO_0=GPIO_NUM_26;
+#else
+#error "Board not supported"
+#endif
+#endif
 
 #define PACKET_LENGTH RS41AUX_PACKET_LENGTH //longest packet length
 #define SERIAL_LENGTH 12
@@ -11,13 +27,12 @@
 
 typedef struct Sonde_s {
   const char *name;
-  int bitRate,
-    frequencyDeviation;
-  unsigned bandwidthHz;
+  unsigned bitRate, afcBandWidth,
+    frequencyDeviation, bandwidthHz;
   int packetLength, 
-    partialPacketLength; //Minimum # of bytes to be read to determine actual packet length
-  int preambleLengthBytes;
-  int syncWordLen;
+    partialPacketLength, //Minimum # of bytes to be read to determine actual packet length
+    preambleLengthBytes,
+    syncWordLen;
   bool flipBytes;
   uint8_t syncWord[SYNCWORD_SIZE];
   
@@ -30,8 +45,7 @@ extern const uint8_t flipByte[];
 extern Sonde *sondes[];
 extern uint32_t freq;
 extern int frame, currentSonde;
-extern const uint8_t flipByte[];//TODO:
-extern struct sx126x_long_pkt_rx_state pktRxState;
+extern const uint8_t flipByte[];
 extern int rssi, mute, batt;
 extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
@@ -43,8 +57,6 @@ extern uint16_t bkTime;
 extern bool otaRunning;
 extern int otaLength, otaErr, otaProgress;
 
-sx126x_gfsk_preamble_detector_t getPreambleLength(unsigned lengthInBytes);
-sx126x_gfsk_bw_t getBandwidth(unsigned bandwidth);
 void dump(uint8_t buf[], int size);
 void savePrefs();
 void bip(int duration, int freq);

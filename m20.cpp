@@ -2,6 +2,7 @@
 //under MIT license
 #include <arduino.h>
 #include "TrovaLaSondaFw.h"
+#include "radio.h"
 #include "m10.h"
 #include "m20.h"
 
@@ -10,6 +11,7 @@ static bool processPacket(uint8_t buf[]);
 Sonde m20={
   .name="M20",
   .bitRate=9600,
+  .afcBandWidth= 50000,
   .frequencyDeviation= 12500,//?
   .bandwidthHz=14600,
   .packetLength=M20_PACKET_LENGTH,
