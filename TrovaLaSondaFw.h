@@ -4,24 +4,23 @@
 #include <stdint.h>
 #include <driver/gpio.h>
 
-#ifdef WIFI_LoRa_32_V3
+#if defined(WIFI_LoRa_32_V3)
 #define SX126X
-// #include <driver\board-config.h>
 const gpio_num_t BUTTON = GPIO_NUM_0, VBAT_PIN = GPIO_NUM_1, ADC_CTRL_PIN = GPIO_NUM_37, BUZZER = GPIO_NUM_46,
                  RADIO_NSS = GPIO_NUM_8, RADIO_DIO_1 = GPIO_NUM_14, RADIO_BUSY = GPIO_NUM_13, RADIO_RESET = GPIO_NUM_12,
                  LORA_CLK = GPIO_NUM_9, LORA_MISO = GPIO_NUM_11, LORA_MOSI = GPIO_NUM_10;
-#else
-#ifdef ARDUINO_TTGO_LoRa32_V1
+#elif defined(ARDUINO_TTGO_LoRa32_V1)
 #define SDA_OLED 21
 #define SCL_OLED 22
 #define RST_OLED 16
+#undef LED_BUILTIN
+#define LED_BUILTIN 25
 
 #define SX1278
 const gpio_num_t BUTTON = GPIO_NUM_NC, VBAT_PIN = GPIO_NUM_35, ADC_CTRL_PIN = GPIO_NUM_NC, BUZZER = GPIO_NUM_4,
                  Vext = GPIO_NUM_NC, RADIO_NSS = (gpio_num_t)SS, RADIO_RESET = GPIO_NUM_23, LORA_CLK = (gpio_num_t)SCK, RADIO_DIO_0 = GPIO_NUM_26;
 #else
 #error "Board not supported"
-#endif
 #endif
 
 #define PACKET_LENGTH RS41AUX_PACKET_LENGTH  //longest packet length
@@ -54,13 +53,14 @@ extern bool encrypted, connected;
 extern char serial[SERIAL_LENGTH + 1];
 extern double lat, lng;
 extern float alt, vel;
-extern char version[];
+extern char version[], platform[];
 extern uint8_t bkStatus;
 extern uint16_t bkTime;
+extern int8_t cpuTemp, radioTemp;
 extern bool otaRunning;
 extern int otaLength, otaErr, otaProgress;
 
-void dump(uint8_t buf[], int size);
+void dump(uint8_t buf[], int size, int rowLen = 16);
 void savePrefs();
 void bip(int duration, int freq);
 #endif

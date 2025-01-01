@@ -1,10 +1,13 @@
-//!arduino-cli compile --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
-//!arduino-cli upload -p COM3 --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
+//arduino-cli compile --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
+//arduino-cli upload -p COM3 --fqbn Heltec-esp32:esp32:heltec_wifi_lora_32_V3
+//or --fqbn esp32:esp32:ttgo-lora32
 #include <SPI.h>
 #include <Wire.h>
 #include <Ticker.h>
 #include <MD_KeySwitch.h>
 #include <Preferences.h>
+// #include <melody_player.h>
+// #include <melody_factory.h>
 #include <esp_partition.h>
 #include <esp_ota_ops.h>
 #include "disp.h"
@@ -16,7 +19,12 @@
 #include "dfm.h"
 #include "Ble.h"
 
-char version[]="1.4";
+char version[] = "2.00";
+#if defined(ARDUINO_TTGO_LoRa32_V1)
+char platform[] = "TL32";
+#elif defined(WIFI_LoRa_32_V3)
+char platform[] = "HL32";
+#endif
 const int BATTERY_SAMPLES = 20;
 uint32_t freq = 403000;
 int frame = 0, currentSonde = 0;
@@ -27,8 +35,12 @@ double lat = 0, lng = 0;
 float alt = 0, vel = 0;
 uint8_t bkStatus;
 uint16_t bkTime;
+int8_t cpuTemp, radioTemp;
 bool otaRunning = false;
-int otaLength=0, otaErr=0, otaProgress=0;
+int otaLength = 0, otaErr = 0, otaProgress = 0;
+// MelodyPlayer player(BUZZER, LOW);
+// const int nNotes = 7, timeUnit = 175;
+// String notes[nNotes] = { "2f#5", "b#5", "c#6", "d#6", "SILENCE", "b5", "d#6" };
 
 // clang-format off
 const uint8_t flipByte[] = {
@@ -50,23 +62,25 @@ const uint8_t flipByte[] = {
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
   };
 // clang-format on
-Sonde unsupported={
-  .name="unsupp",
-  .bitRate=9600,
-  .processPacket=[](uint8_t*p)->bool {return false;}
+Sonde unsupported = {
+  .name = "unsupp",
+  .bitRate = 9600,
+  .processPacket = [](uint8_t *p) -> bool {
+    return false;
+  }
 };
-Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm, &unsupported, &unsupported };
+Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm17, &unsupported, &unsupported };
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
 
-void dump(uint8_t buf[], int size) {
+void dump(uint8_t buf[], int size, int rowLen) {
   for (int i = 0; i < size; i++)
-    Serial.printf("0x%02X,%c", buf[i], i % 16 == 15 ? '\n' : ' ');
-  if (size % 16 != 0) Serial.println();
+    Serial.printf("%02X%c", buf[i], i % rowLen == (rowLen-1) ? '\n' : ' ');
+  if (size % rowLen != 0) Serial.println();
 }
 
-void bip(int duration, int freq) {
+void bip(int duration = 200, int freq = 400) {
   if (mute) return;
   analogWriteFrequency(BUZZER, freq);
   analogWrite(BUZZER, 128);
@@ -75,7 +89,7 @@ void bip(int duration, int freq) {
   });
 }
 
-void flash(int duration) {
+void flash(int duration = 100) {
   digitalWrite(LED_BUILTIN, HIGH);
   tickLedOff.once_ms(duration, []() {
     digitalWrite(LED_BUILTIN, LOW);
@@ -84,12 +98,12 @@ void flash(int duration) {
 
 void VBattInit() {
   pinMode(VBAT_PIN, INPUT);
-  if (ADC_CTRL_PIN!=GPIO_NUM_NC)
+  if (ADC_CTRL_PIN != GPIO_NUM_NC)
     pinMode(ADC_CTRL_PIN, OUTPUT);
 }
 
 int getBattLevel() {
-  if (ADC_CTRL_PIN!=GPIO_NUM_NC) {
+  if (ADC_CTRL_PIN != GPIO_NUM_NC) {
     digitalWrite(ADC_CTRL_PIN, LOW);
     delay(10);
   }
@@ -98,8 +112,8 @@ int getBattLevel() {
     raw += analogRead(VBAT_PIN);
 
   raw /= BATTERY_SAMPLES;
-  
-  if (ADC_CTRL_PIN!=GPIO_NUM_NC)
+
+  if (ADC_CTRL_PIN != GPIO_NUM_NC)
     digitalWrite(ADC_CTRL_PIN, HIGH);
   return constrain(map(raw, 670, 950, 0, 100), 0, 100);
 }
@@ -124,14 +138,18 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(BUZZER, OUTPUT);
   VBattInit();
-  if (BUTTON!=GPIO_NUM_NC) {
+  if (BUTTON != GPIO_NUM_NC) {
     pinMode(BUTTON, INPUT);
     button.enableRepeat(false);
     button.enableLongPress(true);
     button.setLongPressTime(1000);
   }
   readPrefs();
-  bip(200, 440);
+  bip();
+  flash();
+  // Melody melody = MelodyFactory.load("Nice Melody", timeUnit, notes, nNotes);
+  // player.playAsync(melody);
+
   initDisplay();
   delay(1000);
   initRadio();
@@ -150,12 +168,31 @@ void setup() {
 void loop() {
   static uint64_t tLastDisplay = 0, tLastBLELoop = 0;
 
+////////////////////////////////////////////////////////
+  // static bool oldClk=false;
+  // static int n=0;
+  // bool clk=digitalRead(15)==HIGH;
+  // if (clk) {
+  //   if (!oldClk) {
+  //     oldClk=true;
+  //     Serial.print(digitalRead(13)==HIGH?'1':'0');
+  //     if (++n==100) {
+  //       n=0;
+  //       Serial.println();
+  //     }
+  //   }
+  // }
+  // else
+  //   oldClk=false;
+  // return;
+////////////////////////////////////////////////////////
+
   if (tLastBLELoop == 0 || millis() - tLastBLELoop > 500) {
     tLastBLELoop = millis();
     BLELoop();
   }
   if (loopRadio()) {
-    bip(150, constrain(map(alt, 0, 40000, 150, 9000), 150, 9000));
+    bip(150, constrain(map(alt, 0, 40000, 200, 9000), 200, 9000));
     flash(10);
   }
   if (tLastDisplay == 0 || millis() - tLastDisplay > 1000) {
@@ -169,7 +206,7 @@ void loop() {
       BLENotifyRSSI();
     }
   }
-  if (BUTTON!=GPIO_NUM_NC)
+  if (BUTTON != GPIO_NUM_NC)
     switch (button.read()) {
       case MD_KeySwitch::KS_PRESS:
         break;

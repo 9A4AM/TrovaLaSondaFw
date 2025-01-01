@@ -23,13 +23,14 @@
 #define TYPEFREQ_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
 #define BK_UUID "b4da41fe-3194-42e7-8bbb-2e11d3ff6f6d"
 #define MUTE_UUID "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
+#define CRIPTO_UUID "f5208a75-777d-47fe-ae8c-b3530d3244b7"
 #define OTA_TX_UUID "63fa4cbe-3a81-463f-aa84-049dea77a209"
 #define OTA_RX_UUID "4f0227ff-dca1-4484-99f9-155cba7f3d86"
 #define VERSION_UUID "2bc3ed96-a00a-4c9a-84af-7e1283835d71"
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pVelChar, *pSerialChar, *pBurstKillChar,
-  *pBattChar, *pRSSIChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChr, *pOtaRxChr;
+  *pBattChar, *pRSSIChar, *pCryptoChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChr, *pOtaRxChr;
 bool wasConnected = false;
 esp_ota_handle_t handleOta;
 esp_bd_addr_t connected_addr;
@@ -164,6 +165,7 @@ void BLEInit() {
   createCharacteristic(pService, "Serial", SERIAL_UUID, &pSerialChar);
   createCharacteristic(pService, "Battery", BATT_UUID, &pBattChar);
   createCharacteristic(pService, "RSSI", RSSI_UUID, &pRSSIChar);
+  // createCharacteristic(pService, "Crypto", CRIPTO_UUID, &pCryptoChar);
   createCharacteristic(pService, "BurstKill", BK_UUID, &pBurstKillChar);
   createCharacteristic(pService, "TypeFreq", TYPEFREQ_UUID, &pTypeFreqChar, true, false);
   createCharacteristic(pService, "Mute", MUTE_UUID, &pMuteChar, true, false);
@@ -173,7 +175,7 @@ void BLEInit() {
   pTypeFreqChar->setValue(buffer, sizeof buffer);
 
   pMuteChar->setValue(mute);
-  pVersionChr->setValue(version);
+  pVersionChr->setValue(String(platform)+"/"+String(version));
   pService->start();
 
   pService = pServer->createService(BLEUUID(OTA_SERVICE_UUID), 90);
@@ -238,6 +240,13 @@ void BLENotifyBurstKill() {
   pBurstKillChar->notify();
 }
 
+void BLENotifyCrypto() {
+  if (!connected || otaRunning || *serial=='\0') return;
+  uint8_t buffer[] = { rssi>>8, rssi&0xFF, cpuTemp, radioTemp };
+  pCryptoChar->setValue(buffer, sizeof buffer);
+  pCryptoChar->notify();
+}
+
 void BLELoop() {
   static bool startAdvertising = false;
   if (startAdvertising)
@@ -249,11 +258,4 @@ void BLELoop() {
     startAdvertising = true;
     wasConnected = connected;
   }
-  // static uint64_t tLastPrint=0;
-  // if (connected && (tLastPrint==0 || millis()-tLastPrint>2000)) {
-  //   tLastPrint=millis();
-  //   esp_gap_conn_params_t params;
-  //   esp_ble_get_current_conn_params(connected_addr, &params);
-  //   Serial.printf("Conn params: %d, %d, %d\n", params.interval, params.latency, params.timeout);
-  // }
 }

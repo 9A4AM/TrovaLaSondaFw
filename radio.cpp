@@ -1,3 +1,4 @@
+#include "sx1278.h"
 #include <arduino.h>
 #include <SPI.h>
 #include "TrovaLaSondaFw.h"
@@ -51,7 +52,7 @@ uint8_t calcMantExp(uint16_t bw) {
   bw = SX127X_CRYSTAL_FREQ / bw / 8;
   while (bw > 31) {
     exp++;
-    bw /= 2.0;
+    bw /= 2;
   }
   uint8_t mant = bw < 17 ? 0 : bw < 21 ? 1
                                        : 2;
@@ -59,9 +60,9 @@ uint8_t calcMantExp(uint16_t bw) {
 }
 
 void dumpRegisters(void) {
-  for (int j=0;j<16;j++) {
-    for (int i=0;i<7;i++) 
-      Serial.printf("%02X:%02X ",i*16+j,readRegister(i*16+j));
+  for (int j = 0; j < 16; j++) {
+    for (int i = 0; i < 7; i++)
+      Serial.printf("%02X:%02X ", i * 16 + j, readRegister(i * 16 + j));
     Serial.println();
   }
 }
@@ -69,6 +70,9 @@ void dumpRegisters(void) {
 
 void initRadio() {
   char s[20];
+
+  *serial = '\0';
+  lat = lng = alt = 0;
 
   pinMode(RADIO_NSS, OUTPUT);
   digitalWrite(RADIO_NSS, HIGH);
@@ -86,10 +90,10 @@ void initRadio() {
   pinMode(RADIO_BUSY, INPUT);
 
   sx126x_mod_params_gfsk_t modParams = {
-    .br_in_bps = sondes[currentSonde]->bitRate,                       //4800,
-    .fdev_in_hz = sondes[currentSonde]->frequencyDeviation,           //3600,                          //?
-    .pulse_shape = SX126X_GFSK_PULSE_SHAPE_OFF,                       //?
-    .bw_dsb_param = getBandwidth(sondes[currentSonde]->bandwidthHz),  //SX126X_GFSK_BW_9700          //?
+    .br_in_bps = sondes[currentSonde]->bitRate,
+    .fdev_in_hz = sondes[currentSonde]->frequencyDeviation,
+    .pulse_shape = SX126X_GFSK_PULSE_SHAPE_OFF,
+    .bw_dsb_param = getBandwidth(sondes[currentSonde]->bandwidthHz),
   };
   sx126x_pkt_params_gfsk_t pktParams = {
     .preamble_len_in_bits = 0,
@@ -97,7 +101,7 @@ void initRadio() {
     .sync_word_len_in_bits = sondes[currentSonde]->syncWordLen,
     .address_filtering = SX126X_GFSK_ADDRESS_FILTERING_DISABLE,
     .header_type = SX126X_GFSK_PKT_FIX_LEN,
-    .pld_len_in_bytes = min(255, sondes[currentSonde]->packetLength),  //255
+    .pld_len_in_bytes = min(255, sondes[currentSonde]->packetLength),
     .crc_type = SX126X_GFSK_CRC_OFF,
     .dc_free = SX126X_GFSK_DC_FREE_OFF
   };
@@ -148,10 +152,14 @@ void initRadio() {
   }
 #endif
 #ifdef SX1278
-  Serial.println("Inizializzazione SX1278----------------\n");
+  Serial.println("Initializing SX1278");
   uint8_t mode;
 
   pinMode(RADIO_DIO_0, INPUT);
+  ///////////////////////////////////////////////////////////
+  // pinMode(15, INPUT);//DIO1
+  // pinMode(13, INPUT);//DIO2
+  ///////////////////////////////////////////////////////////
 
   //reset SX1278
   delay(10);
@@ -169,7 +177,7 @@ void initRadio() {
 
   mode = readRegister(RegOpMode);
   if (mode != STANDBY_MODE)
-    Serial.printf("Errore, non in standby: %d\n", mode);
+    Serial.printf("Error, not in standby: %d\n", mode);
 
   uint16_t bps = sondes[currentSonde]->bitRate,
            bitRate = (SX127X_CRYSTAL_FREQ * 1.0) / bps,
@@ -178,33 +186,35 @@ void initRadio() {
   writeRegister(RegBitRateLsb, bitRate);
   writeRegister(RegBitRateFrac, fracRate);
 
+  writeRegister(RegRxBw, calcMantExp(sondes[currentSonde]->bandwidthHz));
   writeRegister(RegAfcBw, calcMantExp(sondes[currentSonde]->afcBandWidth));
-  writeRegister(RegRxBw, 0x0F);//////////////////////////////calcMantExp(sondes[currentSonde]->bandwidthHz));
+  writeRegister(RegFdevLsb, sondes[currentSonde]->frequencyDeviation / 61);
+  writeRegister(RegFdevMsb, (sondes[currentSonde]->frequencyDeviation / 61) >> 8);
 
-  writeRegister(RegRxConfig, 1 << 4 | 1 << 3 | 7);  //AFC, AGC, Rx Trigger AGC
+  writeRegister(RegRxConfig, 1 << 7 | 1 << 6 | 1 << 4 | 1 << 3 | 7);  //RestartRxOnCollision, RestartRxWithoutPllLock, AfcAutoOn, AgcAutoOn, RxTrigger: Rssi, Interrupt&PreambleDetect both AGC and AFC
 
-  writeRegister(RegSyncConfig, 1 << 6 | 1 << 4 | (sondes[currentSonde]->syncWordLen / 8 - 1));  //autorestart w/o PLL wait, sync on, sync on, n bytes sync word
+  writeRegister(RegSyncConfig, 1 << 6 | 1 << 5 | 1 << 4 | (sondes[currentSonde]->syncWordLen / 8 - 1));  //autorestart w/o PLL wait, sync on, sync on, n bytes sync word
   if (sondes[currentSonde]->preambleLengthBytes > 0) {
-    writeRegister(RegPreambleDetect,1u<<7|1u<<5|((sondes[currentSonde]->preambleLengthBytes/8)-1));	//enabled, 2 bytes, 0 errors
-    //BUGBUG??writeRegister(RegPreambleDetect, 0xA8);///////////////////////////////1u << 7 | (((sondes[currentSonde]->preambleLengthBytes-1) / 8) - 1)<<4 | 0xA);
-    writeRegister(RegDioMapping2, 1);                                                                             //Preambe detect enabled
+    writeRegister(RegPreambleDetect, 1u << 7 | (((sondes[currentSonde]->preambleLengthBytes - 1) / 8) - 1) << 4 | 0xA);
+    writeRegister(RegDioMapping2, 1);
   } else {
     writeRegister(RegPreambleDetect, 0);  //disabled
-    writeRegister(RegDioMapping2, 0);     //Preamble detect disabled
+    writeRegister(RegDioMapping2, 0);     //Preamble detectrq disabled
   }
 
-  //writeRegisters(RegSyncValue1,syncWord,sizeof syncWord);
   for (int i = 0; i < sondes[currentSonde]->syncWordLen / 8; i++)
     writeRegister(RegSyncValue1 + i, syncWord[i]);
   writeRegister(RegPacketConfig1, 0x08);  //fixed length, no DC-free,no CRC,no filtering
-  
-  writeRegister(RegPacketConfig2, 1u << 6 | (sondes[currentSonde]->packetLength >> 8) & 7);  //packet mode,payload length msb
-  writeRegister(RegPayloadLength, sondes[currentSonde]->packetLength);                       //payload length lsb
+
+  // writeRegister(RegPacketConfig2,0);//continuous mode/////////////////////////////
+  // writeRegister(RegOokPeak,1<<5);//bit synchronizer on//////////////////////////////////
+  // writeRegister(RegSyncConfig,0);/////////////////////////////////////////////////////
+  writeRegister(RegPacketConfig2, 1u << 6 | ((sondes[currentSonde]->packetLength >> 8) & 7));  //packet mode,payload length msb
+  writeRegister(RegPayloadLength, sondes[currentSonde]->packetLength);                         //payload length lsb
 
   writeRegister(RegDioMapping1, 0 << 6);  //DIO0:Payload ready
 
   writeRegister(RegFifoThresh, 48);
-  //writeRegister(RegTcxo, 1 << 4);  //TCXO ON
 
   //~ writeRegister(RegLna,0b110u<<5); //-48dB
 
@@ -219,13 +229,13 @@ void initRadio() {
   writeRegister(RegFreqMid, f >> 8);
   writeRegister(RegFreqLsb, f);
 
-  writeRegister(RegOpMode, RX_MODE);
+  writeRegister(RegOpMode, 1 << 3 | RX_MODE);  //Low frequency
   delay(1);
 
-  writeRegister(RegIrqFlags1, 0xFF);
-  writeRegister(RegIrqFlags2, 0xFF);
+  // writeRegister(RegIrqFlags1, 0xFF);
+  // writeRegister(RegIrqFlags2, 0xFF);
 
-  delay(1);
+  // dumpRegisters();
 #endif
 }
 
@@ -264,7 +274,7 @@ bool loopRadio() {
         validPacket = false;
       }
       //Serial.printf("  READ %d\n", read);
-      if (nBytesRead < sondes[currentSonde]->partialPacketLength && nBytesRead + read >= sondes[currentSonde]->partialPacketLength)
+      if (sondes[currentSonde]->processPartialPacket != NULL && nBytesRead < sondes[currentSonde]->partialPacketLength && nBytesRead + read >= sondes[currentSonde]->partialPacketLength)
         actualPacketLength = sondes[currentSonde]->processPartialPacket(buf);
       nBytesRead += read;
       if (actualPacketLength - nBytesRead <= 255)
@@ -290,7 +300,7 @@ bool loopRadio() {
       res = sx126x_read_buffer(NULL, bufStatus.buffer_start_pointer, buf, bufStatus.pld_len_in_bytes);
       res = sx126x_get_gfsk_pkt_status(NULL, &pktStatus);
       rssi = pktStatus.rssi_sync;
-      Serial.printf("PKT %d bytes\n", bufStatus.pld_len_in_bytes);
+      //Serial.printf("PKT %d bytes\n", bufStatus.pld_len_in_bytes);
       //dump(buf, PACKET_LENGTH);
       validPacket = sondes[currentSonde]->processPacket(buf);
     }
@@ -298,9 +308,9 @@ bool loopRadio() {
 #endif
 
 #ifdef SX1278
-  static uint16_t nCurByte=0;
+  static uint16_t nCurByte = 0;
   if (digitalRead(RADIO_DIO_0) == HIGH) {  //DIO0: payload ready
-  Serial.println("PKT");
+    Serial.println("PKT");
     while (nCurByte < sondes[currentSonde]->packetLength) {
       buf[nCurByte] = readRegister(RegFIFO);
       nCurByte++;
@@ -309,19 +319,22 @@ bool loopRadio() {
     validPacket = sondes[currentSonde]->processPacket(buf);
     nCurByte = 0;
   }
-  static uint8_t oldIrq1,oldIrq2;
-  uint8_t irq1=readRegister(RegIrqFlags1),
-    irq2=readRegister(RegIrqFlags2); //TODO: only if sync received?
-  if (irq1!=oldIrq1 || irq2!=oldIrq2) {
-    oldIrq1=irq1;
-    oldIrq2=irq2;
-    Serial.printf("irq1: %02X irq2: %02X\n",irq1,irq2);
+  static uint8_t oldIrq1, oldIrq2;
+  uint8_t irq1 = readRegister(RegIrqFlags1),
+          irq2 = readRegister(RegIrqFlags2);  //TODO: only if sync received?
+  if ((oldIrq1 & 0x01) == 0 && (irq1 & 0x01) != 0) Serial.println("SYNC");
+  if (irq1 != oldIrq1 || irq2 != oldIrq2) {
+    oldIrq1 = irq1;
+    oldIrq2 = irq2;
+    // Serial.printf("irq1: %02X irq2: %02X\n", irq1, irq2);
   }
-  if ((irq2 & 0x20)!=0) {  //fifo level
+  if ((irq2 & 0x20) != 0) {  //fifo level
     if (nCurByte == 0)
       rssi = readRegister(RegRssiValue);
     for (int i = 0; i < 48 && nCurByte < sondes[currentSonde]->packetLength; i++, nCurByte++)
       buf[nCurByte] = readRegister(RegFIFO);
+    //TODO: AUX
+    //Serial.printf("nCurByte=%d\n", nCurByte);
   }
 #endif
 
@@ -332,6 +345,7 @@ bool loopRadio() {
     BLENotifySerial();
     BLENotifyBurstKill();
     BLENotifyVel();
+    // if (encrypted) BLENotifyCrypto();
   } else {
     if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {
 #ifdef SX126X
@@ -339,7 +353,7 @@ bool loopRadio() {
       sx126x_get_rssi_inst(NULL, &t);
       rssi = t;
 #else
-      rssi = -readRegister(RegRssiValue)/2;
+      rssi = -readRegister(RegRssiValue) / 2;
 #endif
       //Serial.printf("rssi: %d\n", rssi);
       tLastRSSI = millis();

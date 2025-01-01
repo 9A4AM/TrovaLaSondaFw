@@ -1,3 +1,5 @@
+//Portions from https://github.com/dbdexter-dev/sondedump/
+//under MIT license
 #include <arduino.h>
 #include "TrovaLaSondaFw.h"
 #include "radio.h"
@@ -5,21 +7,38 @@
 #include "m10.h"
 
 static bool processPacket(uint8_t buf[]);
+static bool processPacketDFM17(uint8_t buf[]);
 
-Sonde dfm = {
-  .name = "DFM",
+Sonde dfm09 = {
+  .name = "DFM09",
   .bitRate = 2500,
-  .afcBandWidth= 50000,
-  .frequencyDeviation = 10400,  //?
+  .afcBandWidth = 50000,
+  .frequencyDeviation = 10400,
   .bandwidthHz = 11700,
   .packetLength = DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1),  //HACK!
   .partialPacketLength = 0,
   .preambleLengthBytes = 0,
-  .syncWordLen = 16,
+  .syncWordLen = 16,//32,
   .flipBytes = false,
   .syncWord = { /*0x9A, 0x99,*/ 0x5A, 0x55 },
-  .processPartialPacket=NULL,
+  .processPartialPacket = NULL,
   .processPacket = processPacket
+};
+
+Sonde dfm17 = {
+  .name = "DFM17",
+  .bitRate = 2500,
+  .afcBandWidth = 50000,
+  .frequencyDeviation = 10400,
+  .bandwidthHz = 11700,
+  .packetLength = DFM_PACKET_LENGTH * NPACKETS + 4 * (NPACKETS - 1),  //HACK!
+  .partialPacketLength = 0,
+  .preambleLengthBytes = 0,
+  .syncWordLen = 16,//32,
+  .flipBytes = false,
+  .syncWord = { /*0x65,0x66,*/0xA5,0xAA },
+  .processPartialPacket = NULL,
+  .processPacket = processPacketDFM17
 };
 
 static void deinterleave(uint8_t* in, uint8_t* out, int len) {
@@ -97,15 +116,15 @@ static void processConf(uint8_t type, uint8_t* data) {
   }
 
   if (type == serialNumberConfType) {
-    int serial_idx = 3 - (ch & 0xF);
+    int32_t serial_idx = 3 - (ch & 0xF);
     uint16_t serial_shard = (ch >> 4) & 0xFFFF;
     raw_serial &= ~((uint64_t)((1 << 16) - 1) << (16 * serial_idx));
     raw_serial |= (uint64_t)serial_shard << (16 * serial_idx);
     if ((ch & 0xF) == 0) {
       while (raw_serial && !(raw_serial & 0xFFFF)) raw_serial >>= 16;
-      Serial.printf("\tSerial: %08ld=============================\n", raw_serial);
-      snprintf(serial, sizeof serial - 1, "%08ld", raw_serial);
+      snprintf(serial, sizeof serial - 1, "%08d", (int32_t)raw_serial);
       serial[sizeof serial - 1] = '\0';
+      Serial.printf("\tSerial: %08d=============================\n", (int32_t)raw_serial);
       raw_serial = 0;
     }
   }
@@ -142,27 +161,35 @@ static void processDat(uint8_t type, uint8_t* data) {
   }
 }
 
+static bool processPacketDFM17(uint8_t buf[]) {
+  for (int i=0;i<(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) ;i++)
+    buf[i]=~buf[i];
+  return processPacket(buf);
+}
+
 static bool processPacket(uint8_t buf[]) {
-  uint8_t out[(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) / 2];
-  bool valid=true;
+  static uint8_t out[(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) / 2];
+  bool valid = true;
 
   if (manchesterDecode(buf, out, DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4)) {
-    Serial.println("----------------------------------------------");
+    // dump(out, sizeof out, 200);
     for (int k = 0; k < NPACKETS; k++) {
       /////////////////////////////////////////////
-      for (int i = 0; i < 33; i++) {
-        uint8_t b = out[i + k * 35];
-        for (int j = 0; j < 8; j++) {
-          putchar('0' + (1 & (b >> 7)));
-          b <<= 1;
-        }
-      }
-      putchar('\n');
+      // for (int i = 0; i < 33; i++) {
+      //   uint8_t b = out[i + k * 35];
+      //   for (int j = 0; j < 8; j++) {
+      //     putchar('0' + (1 & (b >> 7)));
+      //     b <<= 1;
+      //   }
+      // }
+      // putchar('\n');
       /////////////////////////////////////////////
+
+      // dump(out+k*35,DFM_PACKET_LENGTH/2,100);
 
       if (k > 0)
         if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
-          Serial.printf("Syncword errata %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
+          Serial.printf("Syncword wrong %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
           continue;
         }
 
@@ -170,25 +197,30 @@ static bool processPacket(uint8_t buf[]) {
       deinterleave(out + k * 35, conf, 7);
       deinterleave(out + k * 35 + 7, dat1, 13);
       deinterleave(out + k * 35 + 7 + 13, dat2, 13);
-      //dump(conf, 7);
+      Serial.print("CONF: ");
+      dump(conf, 7);
+      Serial.print("DAT1: ");
+      dump(dat1, 13);
+      Serial.print("DAT2: ");
+      dump(dat2, 13);
 
       int err = hamming(conf, 7);
       if (err < 0) {
         Serial.println("ECC CONF");
-        valid=false;
+        valid = false;
       }
       err = hamming(dat1, 13);
       if (err < 0) {
         Serial.println("ECC DAT1");
-        valid=false;
+        valid = false;
       }
       err = hamming(dat2, 13);
       if (err < 0) {
         Serial.println("ECC DAT2 ");
-        valid=false;
+        valid = false;
       }
 
-      if (!valid) return false;
+      if (!valid) continue;
 
       uint8_t confType = conf[0] >> 4;
       Serial.printf("conf type: %1X, data: ", confType);
@@ -208,9 +240,9 @@ static bool processPacket(uint8_t buf[]) {
       processConf(confType, conf);
       processDat(dat1Type, dat1);
       processDat(dat2Type, dat2);
-      return true;
     }
+    return valid;
   } else
-    Serial.println("Errore codifica manchester");
+    Serial.println("Manchester encoding error");
   return false;
 }

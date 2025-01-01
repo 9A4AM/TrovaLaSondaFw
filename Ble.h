@@ -12,4 +12,5 @@ void BLENotifyRSSI();
 void BLENotifySerial();
 void BLENotifyBurstKill();
 void BLENotifyVel();
+void BLENotifyCrypto();
 #endif

@@ -6,8 +6,8 @@
       "file": "rdzTrovaLaSonda.ino.bin"
     },
     "TrovaLaSondaFw": {
-      "version": "1.2",
-      "info": "Many bug fixes, burstkill now working",
+      "version": "2.00",
+      "info": "Bug fixes, corrected bandwitdth for RS41",
       "file": "TrovaLaSondaFw.ino.bin"
     }
   }

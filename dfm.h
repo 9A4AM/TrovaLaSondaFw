@@ -11,6 +11,6 @@ enum datType { SEQ = 0,
                ALT = 4,
                DATE = 8 };
 
-extern Sonde dfm;
+extern Sonde dfm09,dfm17;
 
  #endif

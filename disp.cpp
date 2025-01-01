@@ -4,8 +4,8 @@
 
 const int BATT_W = 14, BATT_H = 30, BATT_X = 113, BATT_Y = 28,
           BATT_CORNER_RADIUS = 4,
-          BATT_PLUS_W = 6, BATT_PLUS_H = 3, BT_X = 50, BT_Y = 0,
-          SPEAKER_X = 94, SPEAKER_Y = 44, DT = 5;
+          BATT_PLUS_W = 6, BATT_PLUS_H = 3, BT_X = 56, BT_Y = 0,
+          SPEAKER_X = 94, SPEAKER_Y = 44, DT = 4;
 const int logo_width = 32, logo_height = 32;
 static uint8_t logo_bits[] = {
   0x00, 0xFF, 0x01, 0x00, 0xC0, 0xFF, 0x07, 0x00, 0xE0, 0xFF, 0x1F, 0x00,
@@ -70,17 +70,13 @@ unsigned int chute_len = 128;
 
 static SSD1306Wire display(0x3c, SDA_OLED, SCL_OLED);
 
-void showLogoText(int offset) {
+void showLogoText(int vertOffset=0,int horizOffset=0) {
   display.setFont(ArialMT_Plain_16);
   display.setTextAlignment(TEXT_ALIGN_CENTER);
-  display.drawString(65, 32-offset, "TrovaLaSonda");
-  display.drawString(64, 32-offset, "TrovaLaSonda");
-  display.drawString(64, 47-offset, version);
-  display.drawString(65, 47-offset, version);
-}
-
-void showLogoText() {
-  showLogoText(0);
+  display.drawString(65+horizOffset, 32-vertOffset, "TrovaLaSonda");
+  display.drawString(64+horizOffset, 32-vertOffset, "TrovaLaSonda");
+  display.drawString(64-horizOffset, 47-vertOffset, version);
+  display.drawString(65-horizOffset, 47-vertOffset, version);
 }
 
 void initDisplay() {
@@ -117,7 +113,7 @@ void initDisplay() {
     display.drawXbm(i + (128 - logo_width) / 2, 1, logo_width, logo_height, logo_bits);
     showLogoText();
     display.display();
-    delay(DT);
+    delay(DT/2);
   }
   delay(200);
   for (i = 0; i < 16; i++) {
@@ -127,7 +123,14 @@ void initDisplay() {
     display.display();
     delay(DT);
   }
-  delay(500);
+  // delay(300);
+  for (i = 0; i < 120; i+=2) {
+    display.clear();
+    display.setTextAlignment(TEXT_ALIGN_CENTER);
+    showLogoText(16,i);
+    display.display();
+    delay(DT/4);
+  }
 }
 
 void displayOTA() {
@@ -184,6 +187,7 @@ void updateDisplay(uint32_t freq, const char* type, bool mute, bool connected, c
   display.clear();
   display.setColor(WHITE);
   display.setTextAlignment(TEXT_ALIGN_LEFT);
+  display.setFont(ArialMT_Plain_16);
   display.drawString(0, 0, type);
   display.drawString(1, 0, type);
   snprintf(s, sizeof s, "%.3f", freq / 1000.0);

@@ -1,13 +1,22 @@
 {
   "name": "TrovaLaSondaFw",
-  "version": "1.2",
+  "version": "2.0",
   "new_install_prompt_erase": false,
   "builds": [
     {
       "chipFamily": "ESP32-S3",
       "parts": [
         {
-          "path": "https://www.ydiaeresis.eu/public/TrovaLaSondaFw.ino.merged.bin",
+          "path": "https://www.ydiaeresis.eu/public/HELTEC/TrovaLaSondaFw.ino.merged.bin",
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "https://www.ydiaeresis.eu/public/TTGO/TrovaLaSondaFw.ino.merged.bin",
           "offset": 0
         }
       ]
