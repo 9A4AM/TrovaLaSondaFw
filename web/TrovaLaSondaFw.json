@@ -6,7 +6,7 @@
       "file": "rdzTrovaLaSonda.ino.bin"
     },
     "TrovaLaSondaFw": {
-      "version": "2.00",
+      "version": "2.01",
       "info": "Bug fixes, corrected bandwitdth for RS41",
       "file": "TrovaLaSondaFw.ino.bin"
     }

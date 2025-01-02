@@ -11,7 +11,7 @@
 			h3,h1 {color:yellow}
 			table,th,td {border: 1px solid;border-collapse:collapse}
 			td,th { text-align:center;padding:5px}
-			th { font-weigth: bold;}
+			th { font-weigth: bold; background:#404040}
 			a { text-decoration: none; color:#FFCC00!important}
 			a:visited {color:orange}
 			.install-unsupported {background:red;}
@@ -21,7 +21,6 @@
 				--esp-tools-button-text-color: black;
 				--esp-tools-button-border-radius: 10px;
 			}
-			
 			.ui-accordion-header { background:black; color:yellow;border-color:white;font-weight:bold;}
 			.ui-accordion-header-active { border-color:yellow;}
 			.ui-accordion-content { background: dimgray; color:white; }
@@ -51,21 +50,22 @@ $( function() {
 		<div id='accordion'>
 			<h3>What's this?</h3>
 			<div>
-				<p>A firmware for the <a target='_new' href='https://heltec.org/project/wifi-lora-32-v3/'>Heltec Wifi LoRa32 V3.1</a> boards. Its purpose is receiving meteorological radiosondes. To be used in conjunction with your phone and the 
-				<a target='_new' href='https://play.google.com/store/search?q=trova+la+sonda&c=apps'>Trova La Sonda app</a> for Android</p>
+				<p>A firmware for the <a target='_new' href='https://heltec.org/project/wifi-lora-32-v3/'>Heltec Wifi LoRa32 V3</a> and <a target='_new' href='https://lilygo.cc/products/lora3'>LilyGo TTGO LoRa32 V2.1_1.6</a> boards (433MHz version only).
+				Its purpose is receiving meteorological radiosondes. To be used in conjunction with your phone and the 
+				<a target='_new' href='https://play.google.com/apps/testing/eu.ydiaeresis.trovalasonda'>Trova La Sonda app (beta)</a> for Android. Be sure to select "Bluetooth Low Energy" to connect to the device.</p>				
 			</div>
 			<h3>Is it free?</h3>
 			<div>
-				<p>Absolutely. You're free to make donations to a charity if you like it. I especially recommend the <a target='_new' href='https://www.landmine-relief-fund.com/'>Landmine Relief Fund</a>.</p>
+				<p>Absolutely. A donation to a charity would be much appreciated as a way to say thanks. I especially recommend the <a target='_new' href='https://www.landmine-relief-fund.com/'>Landmine Relief Fund</a>.</p>
 			</div>
 			<h3>Is it open source?</h3>
 			<div>
 				<p>Definitely. See the code <a target='_new' href='https://github.com/buttim/TrovaLaSondaFw'>on github</a>.</p>
-				</div>
+			</div>
 			<h3>Did you do all this?</h3>
 			<div>
 				<p>
-				We all stand on the shoulders of giants. Part of the decoding code is taken from <a target='_new' href='https://github.com/dbdexter-dev/sondedump'>sondedump</a> and <a target='_new' href='https://github.com/rs1729/RS'>the RS decoders</a>.
+				We all stand on the shoulders of giants. Part of the decoding code is taken from <a target='_new' href='https://github.com/dbdexter-dev/sondedump'>sondedump</a>, <a target='_new' href='https://github.com/rs1729/RS'>the RS decoders</a> and the <a target='_new' href='https://github.com/dl9rdz/rdz_ttgo_sonde'>rdz_ttgo_sonde firmware</a>.
 				This page was made possible by <a target='_new' href='https://esphome.github.io/esp-web-tools/'>esp-web-tools</a>.
 				</p>
 			</div>
@@ -85,6 +85,10 @@ $( function() {
 				<tr>
 					<td>Vaisala RS41</td>
 					<td>yes</td>
+				</tr>
+				<tr>
+					<td>Vaisala RS41+AUX</td>
+					<td>no</td>
 				</tr>
 				<tr>
 					<td>Meteomodem M10</td>

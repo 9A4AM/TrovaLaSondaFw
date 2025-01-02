@@ -167,6 +167,9 @@ static bool processPacketDFM17(uint8_t buf[]) {
   return processPacket(buf);
 }
 
+uint64_t tFirstPacket=0;
+int nPackets=0;
+
 static bool processPacket(uint8_t buf[]) {
   static uint8_t out[(DFM_PACKET_LENGTH * NPACKETS + (NPACKETS - 1) * 4) / 2];
   bool valid = true;
@@ -186,7 +189,11 @@ static bool processPacket(uint8_t buf[]) {
       /////////////////////////////////////////////
 
       // dump(out+k*35,DFM_PACKET_LENGTH/2,100);
-
+      if (tFirstPacket==0)
+        tFirstPacket=millis();
+      else
+        Serial.printf("packets/sec: %.2f\n",(++nPackets*1000.0)/(millis()-tFirstPacket));
+      
       if (k > 0)
         if (out[k * 35 - 2] != 0x45 || out[k * 35 - 1] != 0xCF) {
           Serial.printf("Syncword wrong %02X %02X\n", out[k * 35 - 2], out[k * 35 - 1]);
@@ -197,12 +204,12 @@ static bool processPacket(uint8_t buf[]) {
       deinterleave(out + k * 35, conf, 7);
       deinterleave(out + k * 35 + 7, dat1, 13);
       deinterleave(out + k * 35 + 7 + 13, dat2, 13);
-      Serial.print("CONF: ");
-      dump(conf, 7);
-      Serial.print("DAT1: ");
-      dump(dat1, 13);
-      Serial.print("DAT2: ");
-      dump(dat2, 13);
+      // Serial.print("CONF: ");
+      // dump(conf, 7);
+      // Serial.print("DAT1: ");
+      // dump(dat1, 13);
+      // Serial.print("DAT2: ");
+      // dump(dat2, 13);
 
       int err = hamming(conf, 7);
       if (err < 0) {
@@ -225,7 +232,7 @@ static bool processPacket(uint8_t buf[]) {
       uint8_t confType = conf[0] >> 4;
       Serial.printf("conf type: %1X, data: ", confType);
       for (int i = 0; i < 7 / 2; i++) conf[i] = conf[2 * i + 1] & 0xF0 | conf[2 * i + 2] >> 4;
-      dump(conf, 7 / 2);
+      // dump(conf, 7 / 2);
 
       uint8_t dat1Type = dat1[12] >> 4;
       //Serial.printf("dat1 type: %1X, data: ", dat1Type);
@@ -242,7 +249,8 @@ static bool processPacket(uint8_t buf[]) {
       processDat(dat2Type, dat2);
     }
     return valid;
-  } else
-    Serial.println("Manchester encoding error");
+  }
+
+  Serial.println("Manchester encoding error");
   return false;
 }

@@ -19,7 +19,7 @@
 #include "dfm.h"
 #include "Ble.h"
 
-char version[] = "2.00";
+char version[] = "2.01";
 #if defined(ARDUINO_TTGO_LoRa32_V1)
 char platform[] = "TL32";
 #elif defined(WIFI_LoRa_32_V3)
@@ -69,7 +69,7 @@ Sonde unsupported = {
     return false;
   }
 };
-Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm17, &unsupported, &unsupported };
+Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm09, &unsupported, &unsupported };
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
