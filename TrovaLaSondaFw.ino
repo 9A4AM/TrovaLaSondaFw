@@ -19,7 +19,7 @@
 #include "dfm.h"
 #include "Ble.h"
 
-char version[] = "2.01";
+char version[] = "2.02";
 #if defined(ARDUINO_TTGO_LoRa32_V1)
 char platform[] = "TL32";
 #elif defined(WIFI_LoRa_32_V3)
@@ -62,14 +62,14 @@ const uint8_t flipByte[] = {
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
   };
 // clang-format on
-Sonde unsupported = {
-  .name = "unsupp",
-  .bitRate = 9600,
-  .processPacket = [](uint8_t *p) -> bool {
-    return false;
-  }
-};
-Sonde *sondes[] = { &rs41, &m20, &m10, &unsupported, &dfm09, &unsupported, &unsupported };
+// Sonde unsupported = {
+//   .name = "unsupp",
+//   .bitRate = 9600,
+//   .processPacket = [](uint8_t *p) -> bool {
+//     return false;
+//   }
+// };
+Sonde *sondes[] = { &rs41, &m20, &m10, &dfm09, &dfm17 };
 Preferences preferences;
 Ticker tickBuzzOff, tickLedOff;
 MD_KeySwitch button(BUTTON, LOW);
