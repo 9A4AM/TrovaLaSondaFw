@@ -28,7 +28,6 @@ Sonde rs41 = {
 };
 
 RS::ReedSolomon<99 + (RS41_PACKET_LENGTH - 48) / 2, 24> rs;
-RS::ReedSolomon<99 + (RS41AUX_PACKET_LENGTH - 48) / 2, 24> rsAux;
 static int actualPacketLength = RS41_PACKET_LENGTH;
 
 // clang-format off
@@ -43,17 +42,16 @@ const uint8_t   whitening[] = {
 static bool correctErrors(uint8_t data[], int length) {
   static uint8_t buf[256], dec[256];
   int i;
+  int offset = length == RS41_PACKET_LENGTH ? 99  : 0;
 
   //prima parte
   memset(buf, 0, 256);
   for (i = 0; i < (length - 48) / 2; i++)
-    buf[99 + i] = data[length - 1 - 2 * i];
+    buf[offset + i] = data[length - 1 - 2 * i];
   for (i = 0; i < 24; i++)
     buf[254 - i] = data[24 + i];
 
-  if (length == RS41_PACKET_LENGTH) {
-    if (0 != rs.Decode(buf, dec)) return false;
-  } else if (0 != rsAux.Decode(buf, dec)) return false;
+  if (0 != rs.Decode(buf, dec)) return false;
 
   for (i = 0; i < (length - 48) / 2; i++)
     data[311 - 2 * i] = dec[99 + i];
@@ -61,16 +59,14 @@ static bool correctErrors(uint8_t data[], int length) {
   //seconda parte
   memset(buf, 0, 256);
   for (i = 0; i < (length - 48) / 2; i++)
-    buf[99 + i] = data[length - 1 - 2 * i - 1];
+    buf[offset + i] = data[length - 1 - 2 * i - 1];
   for (i = 0; i < 24; i++)
     buf[254 - i] = data[i];
 
-  if (length == RS41_PACKET_LENGTH) {
-    if (0 != rs.Decode(buf, dec)) return false;
-  } else if (0 != rsAux.Decode(buf, dec)) return false;
+  if (0 != rs.Decode(buf, dec)) return false;
 
   for (i = 0; i < (length - 48) / 2; i++)
-    data[length - 1 - 2 * i - 1] = dec[99 + i];
+    data[length - 1 - 2 * i - 1] = dec[offset + i];
 
   return true;
 }
@@ -167,6 +163,7 @@ void ecef2wgs84(double x, double y, double z, double &lat, double &lon, float &a
 }
 
 static int processPartialPacket(uint8_t buf[]) {
+  Serial.printf("processPartialPacket %02X\n",buf[48]);
   return actualPacketLength = buf[48] == 0xF0 ? RS41AUX_PACKET_LENGTH : RS41_PACKET_LENGTH;
 }
 
@@ -185,7 +182,10 @@ static bool processPacket(uint8_t buf[]) {
   for (int i = 0; i < actualPacketLength; i++)
     buf[i] = whitening[i % sizeof whitening] ^ flipByte[buf[i]];
 
-  if (!correctErrors(buf, actualPacketLength) && buf[48] == 0x0F) return false;
+  if (!correctErrors(buf, actualPacketLength) && buf[48] == 0x0F) {
+    Serial.println("ECC failed");
+    return false;
+  }
   while (n < actualPacketLength) {
     int blockType = buf[n];
     int blockLength = buf[n + 1];
@@ -217,6 +217,7 @@ static bool processPacket(uint8_t buf[]) {
           }
           break;
         case 0x7B:  //GPSPOS
+        case 0x82:  //new in 2025 series
           svs = buf[n + 0x14];
           if (svs >= 3) {
             x = (int32_t)(buf[n + 2] + 256 * (buf[n + 3] + 256 * (buf[n + 4] + 256 * buf[n + 5]))) / 100.0;
@@ -239,6 +240,7 @@ static bool processPacket(uint8_t buf[]) {
           break;
       }
     }
+    else Serial.printf("Bad CRC for block 0x%02X\n",blockType);
     n += blockLength + 4;
   }
   Serial.println();

@@ -6,10 +6,10 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
 		<link rel="stylesheet" href="https://code.jquery.com/ui/1.14.1/themes/base/jquery-ui.css">
 		<style>
-			body {background:black;color:white;font-family:verdana}
+			body {background:black;color:white;width:100;font-family:verdana;}
 			h1, .center { text-align:center; }
 			h3,h1 {color:yellow}
-			table,th,td {border: 1px solid;border-collapse:collapse}
+			table,th,td {border: 1px solid;border-collapse:collapse;margin-left: auto;margin-right: auto;}
 			td,th { text-align:center;padding:5px}
 			th { font-weigth: bold; background:#404040}
 			a { text-decoration: none; color:#FFCC00!important}
@@ -26,7 +26,7 @@
 			.ui-accordion-content { background: dimgray; color:white; }
 			.ui-accordion h3:not(.ui-state-active):hover{background:#202020}
 			.ui-icon {background-image: url(https://download.jqueryui.com/themeroller/images/ui-icons_yellow_256x240.png) !important;}
-			#accordion {display:none;margin-left:10%;margin-right:10%;margin-top:20px;}
+			#accordion {display:none;width:clamp(320px,50vw,800px);margin-top:20px;margin-left: auto;margin-right: auto;}
 		</style>
 		<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 		<script src="https://code.jquery.com/jquery-3.7.1.js"></script>
@@ -88,7 +88,7 @@ $( function() {
 				</tr>
 				<tr>
 					<td>Vaisala RS41+AUX</td>
-					<td>no</td>
+					<td>yes</td>
 				</tr>
 				<tr>
 					<td>Meteomodem M10</td>
@@ -96,10 +96,14 @@ $( function() {
 				</tr>
 				<tr>
 					<td>Meteomodem M20</td>
-					<td>no</td>
+					<td>yes</td>
 				</tr>
 				<tr>
 					<td>Graw DFM-09</td>
+					<td>no</td>
+				</tr>
+				<tr>
+					<td>Graw DFM-17</td>
 					<td>no</td>
 				</tr>
 			</table>

@@ -5,10 +5,15 @@
       "info": "fixes M20 and M10 reception",
       "file": "rdzTrovaLaSonda.ino.bin"
     },
-    "TrovaLaSondaFw": {
-      "version": "2.02",
-      "info": "Bug fixes, corrected bandwitdth for RS41",
-      "file": "TrovaLaSondaFw.ino.bin"
+    "HL32": {
+      "version": "2.04",
+      "info": "Supports X series RS41s",
+      "file": "HELTEC/TrovaLaSondaFw.ino.bin"
+    },
+    "TL32": {
+      "version": "2.04",
+      "info": "Supports X series RS41s",
+      "file": "TTGO/TrovaLaSondaFw.ino.bin"
     }
   }
 }
