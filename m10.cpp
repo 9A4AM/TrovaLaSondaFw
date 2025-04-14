@@ -122,10 +122,10 @@ static bool processPacket(uint8_t buf[]) {
     //Serial.println("descramble");
     //dump(out, M10_PACKET_LENGTH/2);
     if (m10_frame_correct(&frame) == 0) {
-      m10_9f_serial(serial, &frame);
-      lat = m10_9f_lat(&frame);
-      lng = m10_9f_lon(&frame);
-      alt = m10_9f_alt(&frame);
+      m10_9f_serial(packet.serial, &frame);
+      packet.lat = m10_9f_lat(&frame);
+      packet.lng = m10_9f_lon(&frame);
+      packet.alt = m10_9f_alt(&frame);
       //TODO: frame #
       return true;
     } else

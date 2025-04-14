@@ -4,13 +4,8 @@
 void BLELoop();
 void BLEInit();
 
-void BLENotifyLat();
-void BLENotifyLon();
-void BLENotifyAlt();
+
+void BLENotifyPacket();
 void BLENotifyBatt();
 void BLENotifyRSSI();
-void BLENotifySerial();
-void BLENotifyBurstKill();
-void BLENotifyVel();
-void BLENotifyCrypto();
 #endif

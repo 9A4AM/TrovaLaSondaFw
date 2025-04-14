@@ -122,8 +122,8 @@ static void processConf(uint8_t type, uint8_t* data) {
     raw_serial |= (uint64_t)serial_shard << (16 * serial_idx);
     if ((ch & 0xF) == 0) {
       while (raw_serial && !(raw_serial & 0xFFFF)) raw_serial >>= 16;
-      snprintf(serial, sizeof serial - 1, "%08d", (int32_t)raw_serial);
-      serial[sizeof serial - 1] = '\0';
+      snprintf(packet.serial, sizeof packet.serial - 1, "%08d", (int32_t)raw_serial);
+      packet.serial[sizeof packet.serial - 1] = '\0';
       Serial.printf("\tSerial: %08d=============================\n", (int32_t)raw_serial);
       raw_serial = 0;
     }
@@ -147,16 +147,16 @@ static void processDat(uint8_t type, uint8_t* data) {
       Serial.printf("\t\t\tSec: %d\n", sec / 1000);
       break;
     case LAT:
-      lat = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e7;
-      Serial.printf("\t\t\tLat: %f\n", lat);
+      packet.lat = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e7;
+      Serial.printf("\t\t\tLat: %f\n", packet.lat);
       break;
     case LON:
-      lng = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e7;
-      Serial.printf("\t\t\tLon: %f\n", lng);
+      packet.lng = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e7;
+      Serial.printf("\t\t\tLon: %f\n", packet.lng);
       break;
     case ALT:
-      alt = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e2;
-      Serial.printf("\t\t\tAlt: %f\n", alt);
+      packet.alt = (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) / 1e2;
+      Serial.printf("\t\t\tAlt: %f\n", packet.alt);
       break;
   }
 }

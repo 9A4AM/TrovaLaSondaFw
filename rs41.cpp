@@ -42,7 +42,7 @@ const uint8_t   whitening[] = {
 static bool correctErrors(uint8_t data[], int length) {
   static uint8_t buf[256], dec[256];
   int i;
-  int offset = length == RS41_PACKET_LENGTH ? 99  : 0;
+  int offset = length == RS41_PACKET_LENGTH ? 99 : 0;
 
   //prima parte
   memset(buf, 0, 256);
@@ -163,7 +163,7 @@ void ecef2wgs84(double x, double y, double z, double &lat, double &lon, float &a
 }
 
 static int processPartialPacket(uint8_t buf[]) {
-  Serial.printf("processPartialPacket %02X\n",buf[48]);
+  Serial.printf("processPartialPacket %02X\n", buf[48]);
   return actualPacketLength = buf[48] == 0xF0 ? RS41AUX_PACKET_LENGTH : RS41_PACKET_LENGTH;
 }
 
@@ -172,12 +172,12 @@ static bool processPacket(uint8_t buf[]) {
   double x, y, z, vx, vy, vz, vn, ve, vu;
   int svs, n = 48 + 1;
 
-  // frame = 0;
-  // encrypted = false;
-  // bkStatus = 0;
-  // lat = lng = NAN;
-  // alt = NAN;
-  if (bkTime != 0xFFFFU) bkTime--;
+  // packet.frame = 0;
+  // packet.encrypted = false;
+  // packet.bkStatus = 0;
+  // packet.lat = packet.lng = NAN;
+  // packet.alt = NAN;
+  if (packet.bkTime != 0xFFFFU) packet.bkTime--;
 
   for (int i = 0; i < actualPacketLength; i++)
     buf[i] = whitening[i % sizeof whitening] ^ flipByte[buf[i]];
@@ -187,32 +187,34 @@ static bool processPacket(uint8_t buf[]) {
     return false;
   }
   while (n < actualPacketLength) {
-    int blockType = buf[n];
-    int blockLength = buf[n + 1];
-    int subframeNumber;
+    int blockType = buf[n],
+        blockLength = buf[n + 1],
+        subframeNumber;
     uint16_t crc = calcCRC16(buf + n + 2, blockLength, CRC16_CCITT_FALSE_POLYNOME, CRC16_CCITT_FALSE_INITIAL, CRC16_CCITT_FALSE_XOR_OUT, CRC16_CCITT_FALSE_REV_IN, CRC16_CCITT_FALSE_REV_OUT);
+    double lat, lng;
+    float alt;
 
     //Serial.printf("Blocco 0x%02X, lunghezza %d, CRC: %02X%02X/%02X%02X\n", blockType, blockLength, buf[n + blockLength + 3], buf[n + blockLength + 2], crc >> 8, crc & 0xFF);
     if ((crc & 0xFF) == buf[n + blockLength + 2] && (crc >> 8) == buf[n + blockLength + 3]) {  //CRC OK
       switch (blockType) {
         case 0x79:  //status
-          frame = buf[n + 2] + (buf[n + 3] << 8);
-          Serial.printf(" frame: %d [%.8s] (subframe:%d)", frame, buf + n + 4, buf[n + 2 + 0x17]);
+          packet.frame = buf[n + 2] + (buf[n + 3] << 8);
+          Serial.printf(" frame: %d [%.8s] (subframe:%d)", packet.frame, buf + n + 4, buf[n + 2 + 0x17]);
 
-          strncpy(serial, (char *)buf + n + 4, 8);
-          serial[8] = 0;
+          strncpy(packet.serial, (char *)buf + n + 4, 8);
+          packet.serial[8] = 0;
 
           subframeNumber = buf[n + 2 + 0x17];
           switch (subframeNumber) {
             case 0x02:
-              bkStatus = buf[2 + n + 0x18 + 0x0B];
-              Serial.printf("BkStatus: %d\n", bkStatus);
+              packet.bkStatus = buf[2 + n + 0x18 + 0x0B];
+              Serial.printf("BkStatus: %d\n", packet.bkStatus);
               break;
             case 0x32:
-              bkTime = buf[2 + n + 0x18] + 256 * buf[2 + n + 0x18 + 1];
-              cpuTemp = (int8_t)buf[2 + n + 0x18 + 8];
-              radioTemp = (int8_t)buf[2 + n + 0x18 + 9];
-              Serial.printf("BkTime: %d CPU: %d° radio: %d°\n", bkTime, cpuTemp, radioTemp);
+              packet.bkTime = buf[2 + n + 0x18] + 256 * buf[2 + n + 0x18 + 1];
+              packet.cpuTemp = (int8_t)buf[2 + n + 0x18 + 8];
+              packet.radioTemp = (int8_t)buf[2 + n + 0x18 + 9];
+              Serial.printf("BkTime: %d CPU: %d° radio: %d°\n", packet.bkTime, packet.cpuTemp, packet.radioTemp);
               break;
           }
           break;
@@ -224,23 +226,26 @@ static bool processPacket(uint8_t buf[]) {
             y = (int32_t)(buf[n + 6] + 256 * (buf[n + 7] + 256 * (buf[n + 8] + 256 * buf[n + 9]))) / 100.0;
             z = (int32_t)(buf[n + 10] + 256 * (buf[n + 11] + 256 * (buf[n + 12] + 256 * buf[n + 13]))) / 100.0;
             ecef2wgs84(x, y, z, lat, lng, alt);
+            packet.lat = lat;
+            packet.lng = lng;
+            packet.alt = alt;
 
             vx = (int16_t)(buf[n + 2 + 0x0C] + 256 * buf[n + 2 + 0x0D]) / 100.0;
             vy = (int16_t)(buf[n + 2 + 0x0E] + 256 * buf[n + 2 + 0x0F]) / 100.0;
             vz = (int16_t)(buf[n + 2 + 0x10] + 256 * buf[n + 2 + 0x11]) / 100.0;
-            vn = (-(vx * sin(lat) * cos(lng)) - vy * sin(lat) * sin(lng)) + vz * cos(lat);
-            ve = -(vx * sin(lng)) + vy * cos(lng);
-            vu = vx * cos(lat) * cos(lng) + vy * cos(lat) * sin(lng) + vz * sin(lat);
-            vel = sqrt(pow(vn, 2) + pow(ve, 2));
-            Serial.printf(" lat:%f lon:%f h:%f svs:%d vel:%fm/s vup:%fm/s", lat, lng, alt, svs, vel, vu);
+            vn = (-(vx * sin(packet.lat) * cos(packet.lng)) - vy * sin(packet.lat) * sin(packet.lng)) + vz * cos(packet.lat);
+            ve = -(vx * sin(packet.lng)) + vy * cos(packet.lng);
+            vu = vx * cos(packet.lat) * cos(packet.lng) + vy * cos(packet.lat) * sin(packet.lng) + vz * sin(packet.lat);
+            packet.hVel = sqrt(pow(vn, 2) + pow(ve, 2));
+            packet.vVel = vu;
+            Serial.printf(" lat:%f lon:%f h:%f svs:%d vel:%fm/s vup:%fm/s", packet.lat, packet.lng, packet.alt, svs, packet.hVel, vu);
           }
           break;
         case 0x80:  //CRYPTO
-          encrypted = true;
+          packet.encrypted = true;
           break;
       }
-    }
-    else Serial.printf("Bad CRC for block 0x%02X\n",blockType);
+    } else Serial.printf("Bad CRC for block 0x%02X\n", blockType);
     n += blockLength + 4;
   }
   Serial.println();

@@ -48,14 +48,14 @@ static void decodeFrame(uint8_t* a) {
   uint8_t y = int(ym / 12);
   uint8_t m = ym % 12 + 1;
 
-  frame = a[0x15];
+  packet.frame = a[0x15];
   //serial = f'{y}{m:02}-{ (s2&0x3)+2}-{(s2>>(2+13))&0x1}{ (s2>>2)&0x1FFF:04}'
-  snprintf(serial, sizeof serial, "%d%02d-%d-%d%04d", y, m, s2 & 0x3 + 2, (s2 >> (2 + 13)) & 0x1, (s2 >> 2) & 0x1FFF);
-  serial[sizeof serial - 1] = '\0';
-  lat = (a[0x1C + 0] << 24 | a[0x1C + 1] << 16 | a[0x1C + 2] << 8 | a[0x1C + 3]) / 1e6;
-  lng = (a[0x20 + 0] << 24 | a[0x20 + 1] << 16 | a[0x20 + 2] << 8 | a[0x20 + 3]) / 1e6;
-  alt = (a[8] << 16 | a[9] << 8 | a[10]) / 1e2;
-  Serial.printf("Serial:%s\n", serial);
+  snprintf(packet.serial, sizeof packet.serial, "%d%02d-%d-%d%04d", y, m, s2 & 0x3 + 2, (s2 >> (2 + 13)) & 0x1, (s2 >> 2) & 0x1FFF);
+  packet.serial[sizeof packet.serial - 1] = '\0';
+  packet.lat = (a[0x1C + 0] << 24 | a[0x1C + 1] << 16 | a[0x1C + 2] << 8 | a[0x1C + 3]) / 1e6;
+  packet.lng = (a[0x20 + 0] << 24 | a[0x20 + 1] << 16 | a[0x20 + 2] << 8 | a[0x20 + 3]) / 1e6;
+  packet.alt = (a[8] << 16 | a[9] << 8 | a[10]) / 1e2;
+  Serial.printf("Serial:%s\n", packet.serial);
 }
 
 static bool processPacket(uint8_t buf[]) {

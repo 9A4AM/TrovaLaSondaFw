@@ -71,8 +71,8 @@ void dumpRegisters(void) {
 void initRadio() {
   char s[20];
 
-  *serial = '\0';
-  lat = lng = alt = 0;
+  *packet.serial = '\0';
+  packet.lat = packet.lng = packet.alt = 0;
 
   pinMode(RADIO_NSS, OUTPUT);
   digitalWrite(RADIO_NSS, HIGH);
@@ -346,13 +346,8 @@ bool loopRadio() {
 #endif
 
   if (validPacket) {
-    BLENotifyLat();
-    BLENotifyLon();
-    BLENotifyAlt();
-    BLENotifySerial();
-    BLENotifyBurstKill();
-    BLENotifyVel();
-    // if (encrypted) BLENotifyCrypto();
+    Serial.println("invio notifica pacchetto");
+    BLENotifyPacket();
   } else {
     if ((tLastPacket == 0 || millis() - tLastPacket > 3000) && (tLastRSSI == 0 || millis() - tLastRSSI > 500)) {
 #ifdef SX126X

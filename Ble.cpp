@@ -13,24 +13,18 @@
 
 #define SERVICE_UUID "79ee1705-f663-4674-8774-55042fc215f5"
 #define OTA_SERVICE_UUID "0410c8a6-2c9c-4d6a-9f0e-4bc0ff7e0f7e"
-#define LAT_UUID "fc62efe0-eb5d-4cb0-93d3-01d4fb083e18"
-#define LON_UUID "c8666b42-954a-420f-b235-6baaba740840"
-#define ALT_UUID "1bfdccfe-80f4-46d0-844f-ad8410001989"
-#define VEL_UUID "9cb28ac2-fb89-4714-954b-e9292dedce60"
-#define SERIAL_UUID "539fd1f8-f427-4ddc-99d2-80f51616baab"
+
+#define PACKET_UUID "4dee4a71-2e7e-4018-9656-b60f1e562047"
 #define BATT_UUID "4578ee77-f50f-4584-b59c-46264c56d949"
 #define RSSI_UUID "e482dfeb-774f-4f8b-8eea-87a752326fbd"
 #define TYPEFREQ_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
-#define BK_UUID "b4da41fe-3194-42e7-8bbb-2e11d3ff6f6d"
 #define MUTE_UUID "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
-#define CRIPTO_UUID "f5208a75-777d-47fe-ae8c-b3530d3244b7"
 #define OTA_TX_UUID "63fa4cbe-3a81-463f-aa84-049dea77a209"
 #define OTA_RX_UUID "4f0227ff-dca1-4484-99f9-155cba7f3d86"
 #define VERSION_UUID "2bc3ed96-a00a-4c9a-84af-7e1283835d71"
 
 BLEServer *pServer = NULL;
-BLECharacteristic *pLatChar, *pLonChar, *pAltChar, *pVelChar, *pSerialChar, *pBurstKillChar,
-  *pBattChar, *pRSSIChar, *pCryptoChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChr, *pOtaRxChr;
+BLECharacteristic *pPacketChar, *pBattChar, *pRSSIChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChar, *pOtaRxChar;
 bool wasConnected = false;
 esp_ota_handle_t handleOta;
 esp_bd_addr_t connected_addr;
@@ -99,8 +93,8 @@ class MyCallbacks : public BLECharacteristicCallbacks {
         }
       }
 
-      pOtaRxChr->setValue(otaErr);
-      pOtaRxChr->notify();
+      pOtaRxChar->setValue(otaErr);
+      pOtaRxChar->notify();
 
       if (restart) {
         delay(1000);
@@ -158,15 +152,9 @@ void BLEInit() {
 
   BLEService *pService = pServer->createService(BLEUUID(SERVICE_UUID), 90);
 
-  createCharacteristic(pService, "Latitude", LAT_UUID, &pLatChar);
-  createCharacteristic(pService, "Longitude", LON_UUID, &pLonChar);
-  createCharacteristic(pService, "Altitude", ALT_UUID, &pAltChar);
-  createCharacteristic(pService, "Velocity", VEL_UUID, &pVelChar);
-  createCharacteristic(pService, "Serial", SERIAL_UUID, &pSerialChar);
+  createCharacteristic(pService, "Packet", PACKET_UUID, &pPacketChar);
   createCharacteristic(pService, "Battery", BATT_UUID, &pBattChar);
   createCharacteristic(pService, "RSSI", RSSI_UUID, &pRSSIChar);
-  // createCharacteristic(pService, "Crypto", CRIPTO_UUID, &pCryptoChar);
-  createCharacteristic(pService, "BurstKill", BK_UUID, &pBurstKillChar);
   createCharacteristic(pService, "TypeFreq", TYPEFREQ_UUID, &pTypeFreqChar, true, false);
   createCharacteristic(pService, "Mute", MUTE_UUID, &pMuteChar, true, false);
   createCharacteristic(pService, "Version", VERSION_UUID, &pVersionChr, false, false);
@@ -179,8 +167,8 @@ void BLEInit() {
   pService->start();
 
   pService = pServer->createService(BLEUUID(OTA_SERVICE_UUID), 90);
-  createCharacteristic(pService, "OTA_TX", OTA_TX_UUID, &pOtaTxChr, true, false);
-  createCharacteristic(pService, "OTA_RX", OTA_RX_UUID, &pOtaRxChr);
+  createCharacteristic(pService, "OTA_TX", OTA_TX_UUID, &pOtaTxChar, true, false);
+  createCharacteristic(pService, "OTA_RX", OTA_RX_UUID, &pOtaRxChar);
   pService->start();
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -191,28 +179,10 @@ void BLEInit() {
   BLEDevice::startAdvertising();
 }
 
-void BLENotifyLat() {
-  if (!connected || otaRunning || isnan(lat)) return;
-  pLatChar->setValue(lat);
-  pLatChar->notify();
-}
-
-void BLENotifyLon() {
-  if (!connected || otaRunning || isnan(lng)) return;
-  pLonChar->setValue(lng);
-  pLonChar->notify();
-}
-
-void BLENotifyAlt() {
-  if (!connected || otaRunning || isnan(alt)) return;
-  pAltChar->setValue(alt);
-  pAltChar->notify();
-}
-
-void BLENotifyVel() {
-  if (!connected || otaRunning || isnan(vel)) return;
-  pVelChar->setValue(vel);
-  pVelChar->notify();
+void BLENotifyPacket() {
+  if (!connected || otaRunning) return;
+  pPacketChar->setValue((uint8_t*)&packet,sizeof packet);
+  pPacketChar->notify();
 }
 
 void BLENotifyBatt() {
@@ -225,26 +195,6 @@ void BLENotifyRSSI() {
   if (!connected || otaRunning) return;
   pRSSIChar->setValue(rssi);
   pRSSIChar->notify();
-}
-
-void BLENotifySerial() {
-  if (!connected || otaRunning || *serial=='\0') return;
-  pSerialChar->setValue(serial);
-  pSerialChar->notify();
-}
-
-void BLENotifyBurstKill() {
-  if (!connected || otaRunning || bkTime==0xFFFFU) return;
-  uint8_t buffer[] = { bkStatus, bkTime, bkTime >> 8 };
-  pBurstKillChar->setValue(buffer, sizeof buffer);
-  pBurstKillChar->notify();
-}
-
-void BLENotifyCrypto() {
-  if (!connected || otaRunning || *serial=='\0') return;
-  uint8_t buffer[] = { rssi>>8, rssi&0xFF, cpuTemp, radioTemp };
-  pCryptoChar->setValue(buffer, sizeof buffer);
-  pCryptoChar->notify();
 }
 
 void BLELoop() {

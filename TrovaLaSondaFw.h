@@ -43,20 +43,32 @@ typedef struct Sonde_s {
   bool (*processPacket)(uint8_t buf[]);
 } Sonde;
 
+
+struct __attribute__((packed)) Packet {
+  int frame;
+  double lat, lng;
+  float alt, hVel, vVel;
+  uint16_t bkTime;
+  uint8_t bkStatus, cpuTemp, radioTemp;
+  bool encrypted;
+  char serial[SERIAL_LENGTH + 1];
+};
+
 extern const uint8_t flipByte[];
 extern Sonde *sondes[];
 extern uint32_t freq;
-extern int frame, currentSonde;
+extern int /*frame,*/ currentSonde;
 extern const uint8_t flipByte[];
 extern int rssi, mute, batt;
-extern bool encrypted, connected;
-extern char serial[SERIAL_LENGTH + 1];
+extern bool /*encrypted,*/ connected;
+extern Packet packet;
+/*extern char serial[SERIAL_LENGTH + 1];
 extern double lat, lng;
 extern float alt, vel;
-extern char version[], platform[];
 extern uint8_t bkStatus;
 extern uint16_t bkTime;
-extern int8_t cpuTemp, radioTemp;
+extern int8_t cpuTemp, radioTemp;*/
+extern char version[], platform[];
 extern bool otaRunning;
 extern int otaLength, otaErr, otaProgress;
 
