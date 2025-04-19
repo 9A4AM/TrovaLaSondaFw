@@ -14,11 +14,11 @@ static int processPartialPacket(uint8_t buf[]);
 Sonde rs41 = {
   .name = "RS41",
   .bitRate = 4800,
-  .afcBandWidth = 12500,
-  .frequencyDeviation = 6300,
+  .afcBandWidth = 50000,//12500,
+  .frequencyDeviation = 3600,//6300,
   .bandwidthHz = 9700,
   .packetLength = RS41_PACKET_LENGTH,
-  .partialPacketLength = 49,
+  .partialPacketLength = 48,
   .preambleLengthBytes = 3,
   .syncWordLen = 64,
   .flipBytes = true,
@@ -163,8 +163,9 @@ void ecef2wgs84(double x, double y, double z, double &lat, double &lon, float &a
 }
 
 static int processPartialPacket(uint8_t buf[]) {
-  Serial.printf("processPartialPacket %02X\n", buf[48]);
-  return actualPacketLength = buf[48] == 0xF0 ? RS41AUX_PACKET_LENGTH : RS41_PACKET_LENGTH;
+  uint8_t byte=whitening[48 % sizeof whitening] ^ flipByte[buf[48]];
+  Serial.printf("processPartialPacket %02X\n", byte);
+  return actualPacketLength = byte == 0xF0 ? RS41AUX_PACKET_LENGTH : RS41_PACKET_LENGTH;
 }
 
 static bool processPacket(uint8_t buf[]) {

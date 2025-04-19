@@ -11,17 +11,19 @@
 #include "TrovaLaSondaFw.h"
 #include "radio.h"
 
-#define SERVICE_UUID "79ee1705-f663-4674-8774-55042fc215f5"
+#define SERVICE_UUID      "177fba78-7843-40a6-801b-a4cd8d7f5c11"
+
+#define PACKET_UUID       "4dee4a71-2e7e-4018-9656-b60f1e562047"
+#define BATT_UUID         "4578ee77-f50f-4584-b59c-46264c56d949"
+#define RSSI_UUID         "e482dfeb-774f-4f8b-8eea-87a752326fbd"
+#define TYPEFREQ_UUID     "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
+#define MUTE_UUID         "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
+#define VERSION_UUID      "2bc3ed96-a00a-4c9a-84af-7e1283835d71"
+
 #define OTA_SERVICE_UUID "0410c8a6-2c9c-4d6a-9f0e-4bc0ff7e0f7e"
 
-#define PACKET_UUID "4dee4a71-2e7e-4018-9656-b60f1e562047"
-#define BATT_UUID "4578ee77-f50f-4584-b59c-46264c56d949"
-#define RSSI_UUID "e482dfeb-774f-4f8b-8eea-87a752326fbd"
-#define TYPEFREQ_UUID "66bf4d7f-2b21-468d-8dce-b241c7447cc6"
-#define MUTE_UUID "a8b47819-eb1a-4b5c-8873-6258ddfe8055"
-#define OTA_TX_UUID "63fa4cbe-3a81-463f-aa84-049dea77a209"
-#define OTA_RX_UUID "4f0227ff-dca1-4484-99f9-155cba7f3d86"
-#define VERSION_UUID "2bc3ed96-a00a-4c9a-84af-7e1283835d71"
+#define OTA_TX_UUID       "63fa4cbe-3a81-463f-aa84-049dea77a209"
+#define OTA_RX_UUID       "4f0227ff-dca1-4484-99f9-155cba7f3d86"
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pPacketChar, *pBattChar, *pRSSIChar, *pTypeFreqChar, *pMuteChar, *pVersionChr, *pOtaTxChar, *pOtaRxChar;

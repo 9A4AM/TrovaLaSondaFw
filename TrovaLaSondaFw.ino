@@ -19,7 +19,7 @@
 #include "dfm.h"
 #include "Ble.h"
 
-char version[] = "2.06";
+char version[] = "2.09";
 #if defined(ARDUINO_TTGO_LoRa32_V1)
 char platform[] = "TL32";
 #elif defined(WIFI_LoRa_32_V3)
@@ -27,9 +27,9 @@ char platform[] = "HL32";
 #endif
 const int BATTERY_SAMPLES = 20;
 uint32_t freq = 403000;
-int /*frame = 0,*/ currentSonde = 0;
+int currentSonde = 0;
 int rssi, mute, batt;
-bool /*encrypted = false,*/ connected = false;
+bool connected = false;
 Packet packet={
   .frame=0,
   .lat=0,

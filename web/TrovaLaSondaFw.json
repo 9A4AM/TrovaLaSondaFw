@@ -1,17 +1,17 @@
 {
   "db": {
     "rdzTrovaLaSonda": {
-      "version": "0.13",
+      "version": "0.19",
       "info": "fixes M20 and M10 reception",
       "file": "rdzTrovaLaSonda.ino.bin"
     },
     "HL32": {
-      "version": "2.06",
+      "version": "2.09",
       "info": "Supports X series RS41s",
       "file": "HELTEC/TrovaLaSondaFw.ino.bin"
     },
     "TL32": {
-      "version": "2.06",
+      "version": "2.09",
       "info": "Supports X series RS41s",
       "file": "TTGO/TrovaLaSondaFw.ino.bin"
     }

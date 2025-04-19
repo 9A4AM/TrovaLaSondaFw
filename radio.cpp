@@ -191,7 +191,7 @@ void initRadio() {
   writeRegister(RegFdevLsb, sondes[currentSonde]->frequencyDeviation / 61);
   writeRegister(RegFdevMsb, (sondes[currentSonde]->frequencyDeviation / 61) >> 8);
 
-  writeRegister(RegRxConfig, 1 << 7 | 1 << 6 | 1 << 4 | 1 << 3 | 1);  //7);  //RestartRxOnCollision, RestartRxWithoutPllLock, AfcAutoOn, AgcAutoOn, RxTrigger: Rssi, Interrupt&PreambleDetect both AGC and AFC
+  writeRegister(RegRxConfig, 1 << 7 | 1 << 6 | 1 << 4 | 1 << 3 | 1 << 2 | 1 << 1 | 1);  //7);  //RestartRxOnCollision, RestartRxWithoutPllLock, AfcAutoOn, AgcAutoOn, RxTrigger: Rssi and preamble detect, Interrupt&PreambleDetect both AGC and AFC
 
   writeRegister(RegSyncConfig, 1 << 6 | 1 << 5 | 1 << 4 | (sondes[currentSonde]->syncWordLen / 8 - 1));  //autorestart w/o PLL wait, sync on, sync on, n bytes sync word
   if (sondes[currentSonde]->preambleLengthBytes > 0) {
@@ -308,17 +308,30 @@ bool loopRadio() {
 #endif
 
 #ifdef SX1278
+  //TODO: TESTARE AUX  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
   static uint16_t nCurByte = 0;
   static uint8_t oldIrq1, oldIrq2;
   uint8_t irq1 = readRegister(RegIrqFlags1),
           irq2 = readRegister(RegIrqFlags2);
-  if ((irq2 & 0x10)!=0) { //FIFO overrun
-    Serial.println("OVERRUN");
-    nCurByte=0;
+
+  ///////////////////////////////////////////////////////////////
+  if (tLastPacket != 0 && millis() - tLastPacket > 3000) {
+    tLastPacket = 0;
+    // Serial.println("\n---------------");
+    // dumpRegisters();
+    // Serial.println("---------------");
+    initRadio();  //HACKHACK
   }
-  if ((irq2 & 4)!=0) {//digitalRead(RADIO_DIO_0) == HIGH) {  //DIO0: payload ready
-    Serial.println("PKT");
-    while (nCurByte < sondes[currentSonde]->packetLength) {
+  ///////////////////////////////////////////////////////////////
+
+  if ((irq2 & 0x10) != 0) {  //FIFO overrun
+    Serial.println("OVERRUN");
+    writeRegister(RegIrqFlags2, 0x10);  //reset bit
+    nCurByte = 0;
+  }
+  if ((irq2 & 4) != 0) {  //digitalRead(RADIO_DIO_0) == HIGH) {  //DIO0: payload ready
+    Serial.printf("PKT (len=%d)\n",actualPacketLength);
+    while (nCurByte < actualPacketLength) {
       buf[nCurByte] = readRegister(RegFIFO);
       nCurByte++;
     }
@@ -328,7 +341,9 @@ bool loopRadio() {
   }
   if ((oldIrq1 & 0x01) == 0 && (irq1 & 0x01) != 0) {
     Serial.println("SYNC");
-    nCurByte=0;
+    nCurByte = 0;
+    actualPacketLength = sondes[currentSonde]->packetLength;
+    tLastPacket = millis();
   }
   if (irq1 != oldIrq1 || irq2 != oldIrq2) {
     oldIrq1 = irq1;
@@ -338,10 +353,12 @@ bool loopRadio() {
   if ((irq2 & 0x20) != 0) {  //fifo level
     if (nCurByte == 0)
       rssi = readRegister(RegRssiValue);
-    for (int i = 0; i < 48 && nCurByte < sondes[currentSonde]->packetLength; i++, nCurByte++)
+    for (int i = 0; i < 48 && nCurByte < actualPacketLength; i++, nCurByte++) {
       buf[nCurByte] = readRegister(RegFIFO);
-    //TODO: AUX ***************************************************************************************************
-    // Serial.printf("nCurByte=%d\n", nCurByte);
+      if (sondes[currentSonde]->partialPacketLength > 0 && nCurByte == sondes[currentSonde]->partialPacketLength)
+        actualPacketLength = sondes[currentSonde]->processPartialPacket(buf);
+      // Serial.printf("nCurByte=%d\n", nCurByte);
+    }
   }
 #endif
 
